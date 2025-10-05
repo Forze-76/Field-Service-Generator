@@ -228,4 +228,11 @@ describe("buildReportHtml", () => {
     const matches = html.match(/Correction photo \d+/g) || [];
     expect(matches.length).toBeGreaterThanOrEqual(2);
   });
+
+  it("injects current user details into the header", () => {
+    const report = makeReport([]);
+    const html = buildReportHtml(report, { name: "Alex Tech", email: "alex@pflow.com" });
+    expect(html).toContain("Alex Tech — Field Service Tech");
+    expect(html).toContain("alex@pflow.com");
+  });
 });

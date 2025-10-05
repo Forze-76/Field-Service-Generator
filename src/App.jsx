@@ -33,15 +33,26 @@ import {
   SerialTagCard,
   ServiceSummaryForm,
   StorageMeter,
+  UserMenu,
 } from "./components";
 import useModalA11y from "./hooks/useModalA11y";
+import { AuthProvider, useAuth } from "./auth/AuthContext";
+import AuthGate from "./auth/AuthGate";
 
 // ===================== Main App =====================
-export default function App() {
-  const [types, setTypes] = useState(loadTypes);
+function Workspace({
+  storage,
+  currentUser,
+  onLock,
+  onSignOut,
+  onSwitchUser,
+  justSignedIn,
+  clearJustSignedIn,
+}) {
+  const [types, setTypes] = useState(() => loadTypes(storage));
   const [manageOpen, setManageOpen] = useState(false);
 
-  const [reports, setReports] = useState(loadReports);
+  const [reports, setReports] = useState(() => loadReports(storage));
   const [selectedId, setSelectedId] = useState(null);
   const selected = useMemo(()=> reports.find(r=>r.id===selectedId) || null, [reports, selectedId]);
 
@@ -64,14 +75,50 @@ export default function App() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [duplicatePrompt, setDuplicatePrompt] = useState(null);
 
+  const [toast, setToast] = useState(null);
+  const [banner, setBanner] = useState("");
+
   const manageTriggerRef = useRef(null);
   const docsTriggerRef = useRef(null);
   const manualsTriggerRef = useRef(null);
   const setupTriggerRef = useRef(null);
   const deleteTriggerRef = useRef(null);
 
+  const storageScope = storage?.scopeId || "";
+
+  useEffect(() => {
+    if (!storage) return;
+    setTypes(loadTypes(storage));
+    setReports(loadReports(storage));
+    setSelectedId(null);
+  }, [storageScope]);
+
   // Persist on changes
-  useEffect(()=> saveReports(reports), [reports]);
+  useEffect(() => {
+    if (!storage) return;
+    saveReports(reports, storage);
+  }, [reports, storage]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  useEffect(() => {
+    if (!justSignedIn) return;
+    const offline = typeof navigator !== "undefined" ? !navigator.onLine : false;
+    if (offline && reports.length === 0) {
+      setBanner("Your reports will appear after first sync.");
+    }
+    clearJustSignedIn();
+  }, [justSignedIn, reports.length, clearJustSignedIn]);
+
+  useEffect(() => {
+    if (reports.length > 0) {
+      setBanner("");
+    }
+  }, [reports.length]);
 
   // When selecting a report, default the active tab to the first document
   useEffect(()=>{
@@ -222,8 +269,20 @@ export default function App() {
     updateFsrData((data) => setEntriesCollapsedState(data, collapsed));
   };
 
+  const handleSync = () => {
+    console.log("Cloud sync placeholder—no server configured.");
+    setToast({ id: Date.now(), text: "Cloud sync placeholder—no server configured." });
+  };
+
   return (
     <div className="min-h-dvh bg-gradient-to-b from-gray-50 to-white">
+      {toast && (
+        <div className="fixed top-6 right-6 z-50">
+          <div className="rounded-xl bg-slate-900/90 px-4 py-3 text-sm font-medium text-white shadow-xl">
+            {toast.text}
+          </div>
+        </div>
+      )}
       {/* Shell with optional Sidebar */}
       <div className={`mx-auto ${selected? 'max-w-6xl' : 'max-w-7xl'} flex`}>
         {/* Sidebar only on Home */}
@@ -297,27 +356,45 @@ export default function App() {
               )}
               <h1 className="text-2xl md:text-3xl font-extrabold">Field Service Report</h1>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                className="px-3 py-2 rounded-xl border flex items-center gap-2"
-                onClick={(event)=>{
-                  manageTriggerRef.current = event.currentTarget;
-                  setManageOpen(true);
-                }}
-              >
-                <Settings size={18}/> Trip Types
-              </button>
-              <button
-                className="px-3 py-2 rounded-xl bg-blue-600 text-white flex items-center gap-2"
-                onClick={(event)=>{
-                  setupTriggerRef.current = event.currentTarget;
-                  setSetupOpen(true);
-                }}
-              >
-                <Plus size={18}/> New Report
-              </button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  className="px-3 py-2 rounded-xl border flex items-center gap-2"
+                  onClick={(event)=>{
+                    manageTriggerRef.current = event.currentTarget;
+                    setManageOpen(true);
+                  }}
+                >
+                  <Settings size={18}/> Trip Types
+                </button>
+                <button
+                  className="px-3 py-2 rounded-xl bg-blue-600 text-white flex items-center gap-2"
+                  onClick={(event)=>{
+                    setupTriggerRef.current = event.currentTarget;
+                    setSetupOpen(true);
+                  }}
+                >
+                  <Plus size={18}/> New Report
+                </button>
+              </div>
+              <UserMenu
+                user={currentUser}
+                onLock={onLock}
+                onSignOut={onSignOut}
+                onSwitchUser={onSwitchUser}
+                onSync={handleSync}
+              />
             </div>
           </div>
+
+          {banner && (
+            <div className="mb-6 flex items-center justify-between rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              <span>{banner}</span>
+              <button className="p-1 rounded-full hover:bg-blue-100" onClick={()=>setBanner("")} aria-label="Dismiss notice">
+                <X size={16} />
+              </button>
+            </div>
+          )}
 
           {/* Home (main page) */}
           {!selected && (
@@ -382,7 +459,7 @@ export default function App() {
                     <div className="font-semibold">{formatRange(selected.startAt, selected.endAt)}</div>
                   </div>
                   <div className="flex items-start gap-2 justify-end flex-wrap">
-                    <button className="px-3 py-2 rounded-xl border flex items-center gap-2 disabled:opacity-40" disabled={fsrIssueEntries.length === 0} onClick={()=>exportReport(selected)}>
+                    <button className="px-3 py-2 rounded-xl border flex items-center gap-2 disabled:opacity-40" disabled={fsrIssueEntries.length === 0} onClick={()=>exportReport(selected, currentUser)}>
                       <FileDown size={18}/> Export Report
                     </button>
                     <button className="px-3 py-2 rounded-xl border flex items-center gap-2 disabled:opacity-40" disabled={!hasPhotos} onClick={()=>exportFieldPictures(selected)}>
@@ -465,6 +542,7 @@ export default function App() {
         types={types}
         setTypes={setTypes}
         returnFocusRef={manageTriggerRef}
+        storage={storage}
       />
 
       {/* Docs Settings Modal */}
@@ -534,6 +612,42 @@ export default function App() {
         returnFocusRef={setupTriggerRef}
       />
     </div>
+  );
+}
+
+function AppShell() {
+  const { status, currentUser, scopedStorage, lock, signOut, switchUser, justSignedIn, clearJustSignedIn } = useAuth();
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-dvh flex items-center justify-center bg-gradient-to-b from-gray-50 to-white">
+        <div className="rounded-2xl border bg-white px-6 py-4 text-sm text-gray-600 shadow">Checking local profiles…</div>
+      </div>
+    );
+  }
+
+  if (!currentUser || !scopedStorage) {
+    return <AuthGate />;
+  }
+
+  return (
+    <Workspace
+      storage={scopedStorage}
+      currentUser={currentUser}
+      onLock={lock}
+      onSignOut={signOut}
+      onSwitchUser={switchUser}
+      justSignedIn={justSignedIn}
+      clearJustSignedIn={clearJustSignedIn}
+    />
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
   );
 }
 
