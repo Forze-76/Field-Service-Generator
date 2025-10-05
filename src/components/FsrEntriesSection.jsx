@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -133,6 +133,21 @@ const getEntrySummary = (entry) => {
 };
 
 function EntryForm({ value, onChange }) {
+  const fallbackPartRowRef = useRef(null);
+
+  if (!fallbackPartRowRef.current) {
+    fallbackPartRowRef.current = { id: uid(), partNo: "", desc: "", qty: "" };
+  }
+
+  useEffect(() => {
+    if (value.type !== "orderParts") return;
+    const rows = Array.isArray(value.parts) ? value.parts : [];
+    const hasMissingId = rows.some((row) => row && !row.id);
+    if (!hasMissingId) return;
+    const withIds = rows.map((row) => (row && row.id ? row : { ...row, id: uid() }));
+    onChange({ ...value, parts: withIds });
+  }, [value, onChange]);
+
   const meta = FSR_ENTRY_TYPE_META[value.type] || { label: "Entry" };
 
   if (value.type === "issue") {
@@ -182,13 +197,13 @@ function EntryForm({ value, onChange }) {
   }
 
   if (value.type === "orderParts") {
-    const parts = value.parts && value.parts.length ? value.parts : [{ id: uid(), partNo: "", desc: "", qty: "" }];
-    const updatePart = (index, patch) => {
-      const next = parts.map((row, idx) => (idx === index ? { ...row, ...patch } : row));
+    const parts = value.parts && value.parts.length ? value.parts : [fallbackPartRowRef.current];
+    const updatePart = (id, patch) => {
+      const next = parts.map((row) => (row.id === id ? { ...row, ...patch } : row));
       onChange({ ...value, parts: next });
     };
-    const removePart = (index) => {
-      const next = parts.filter((_, idx) => idx !== index);
+    const removePart = (id) => {
+      const next = parts.filter((row) => row.id !== id);
       onChange({ ...value, parts: next });
     };
     const addPart = () => {
@@ -212,31 +227,31 @@ function EntryForm({ value, onChange }) {
             <div className="col-span-12 md:col-span-7">Description</div>
             <div className="col-span-12 md:col-span-2">Qty</div>
           </div>
-          {parts.map((row, index) => (
-            <div key={row.id || index} className="grid grid-cols-12 gap-2 px-3 py-2 border-t">
+          {parts.map((row) => (
+            <div key={row.id} className="grid grid-cols-12 gap-2 px-3 py-2 border-t">
               <input
                 className="col-span-12 md:col-span-3 rounded-xl border px-3 py-2 text-sm"
                 value={row.partNo}
-                onChange={(event) => updatePart(index, { partNo: event.target.value })}
+                onChange={(event) => updatePart(row.id, { partNo: event.target.value })}
                 placeholder="e.g., 12345"
               />
               <input
                 className="col-span-12 md:col-span-7 rounded-xl border px-3 py-2 text-sm"
                 value={row.desc}
-                onChange={(event) => updatePart(index, { desc: event.target.value })}
+                onChange={(event) => updatePart(row.id, { desc: event.target.value })}
                 placeholder="Description"
               />
               <div className="col-span-12 md:col-span-2 flex items-center gap-2">
                 <input
                   className="flex-1 rounded-xl border px-3 py-2 text-sm"
                   value={row.qty}
-                  onChange={(event) => updatePart(index, { qty: event.target.value })}
+                  onChange={(event) => updatePart(row.id, { qty: event.target.value })}
                   placeholder="Qty"
                 />
                 <button
                   type="button"
                   className="p-2 rounded-xl border text-gray-500 hover:text-red-600"
-                  onClick={() => removePart(index)}
+                  onClick={() => removePart(row.id)}
                   title="Remove row"
                   aria-label="Remove part row"
                 >

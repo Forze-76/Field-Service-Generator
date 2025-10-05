@@ -121,14 +121,31 @@ function Workspace({
   }, [reports.length]);
 
   // When selecting a report, default the active tab to the first document
-  useEffect(()=>{
-    if (selected) {
-      const first = selected.documents?.[0]?.id || null;
-      setActiveDocId(prev => selected.documents?.some(d=>d.id===prev) ? prev : first);
-    } else {
-      setActiveDocId(null);
+  useEffect(() => {
+    if (!selected) {
+      if (activeDocId !== null) {
+        setActiveDocId(null);
+      }
+      return;
     }
-  }, [selectedId]);
+
+    const docs = Array.isArray(selected.documents) ? selected.documents : [];
+    if (!docs.length) {
+      if (activeDocId !== null) {
+        setActiveDocId(null);
+      }
+      return;
+    }
+
+    if (activeDocId && docs.some((doc) => doc.id === activeDocId)) {
+      return;
+    }
+
+    const first = docs[0]?.id || null;
+    if (first !== activeDocId) {
+      setActiveDocId(first);
+    }
+  }, [selected, activeDocId]);
 
   const canCreate = isValidJob(jobNo) && !!tripType && !!model && new Date(endAt) >= new Date(startAt);
 

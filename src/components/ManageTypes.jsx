@@ -23,7 +23,7 @@ function ManageTypes({ open, onClose, types, setTypes, returnFocusRef, storage }
         </div>
         <div className="space-y-2 max-h-72 overflow-auto">
           {types.map((t, idx) => (
-            <div key={t + idx} className="flex items-center gap-2">
+            <div key={t} className="flex items-center gap-2">
               <div className="flex-1 rounded-xl border px-3 py-2">{t}</div>
               <button
                 className="px-3 py-2 rounded-xl border hover:bg-gray-50"
