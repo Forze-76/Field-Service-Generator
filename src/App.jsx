@@ -3,7 +3,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Plus, FileDown, X, Settings, Trash, Search, FolderPlus, Calendar, Home as HomeIcon, Cog, BookOpen } from "lucide-react";
 
 import {
+  addEntryWithEffects,
   clampJob,
+  ensureFsrDocData,
   exportFieldPictures,
   exportReport,
   formatRange,
@@ -12,14 +14,18 @@ import {
   loadTypes,
   makeDocs,
   MODELS,
+  moveEntryInFsrData,
+  removeEntryFromFsrData,
   saveReports,
+  setEntriesCollapsedState,
   toISOInput,
   uid,
+  updateEntryInFsrData,
 } from "./utils/fsr";
 import {
   ConfirmDialog,
   DocumentTabs,
-  IssueCard,
+  FsrEntriesSection,
   ManageDocsModal,
   ManageTypes,
   ManualsModal,
@@ -115,15 +121,6 @@ export default function App() {
     updateDocs((docs)=> (docs||[]).map(d => d.id===id ? nextDoc : d));
   }
 
-  function updateFsrIssues(mutator) {
-    updateDocs((docs)=> (docs||[]).map(d => {
-      if ((d.name||"").toLowerCase() !== 'field service report') return d;
-      const prevIssues = d.data?.issues || [];
-      const nextIssues = mutator(prevIssues);
-      return { ...d, data: { ...(d.data||{}), issues: nextIssues } };
-    }));
-  }
-
   function updatePhotos(mutator){
     if(!selected) return;
     const next = typeof mutator === 'function' ? mutator(selected.photos||[]) : mutator;
@@ -143,14 +140,55 @@ export default function App() {
 
   const readyForIssues = selected ? (!!selected.serialTagImageUrl || !!selected.serialTagMissing) : false;
   const fsrDoc = selected?.documents?.find(d => (d.name||"").toLowerCase() === 'field service report');
-  const fsrIssues = fsrDoc?.data?.issues || [];
+  const fsrData = ensureFsrDocData(fsrDoc?.data);
+  const fsrEntries = fsrData.entries || [];
+  const fsrIssueEntries = fsrEntries.filter((entry) => entry.type === "issue");
+
+  useEffect(() => {
+    if (!fsrDoc) return;
+    const needsEntries = !Array.isArray(fsrDoc.data?.entries);
+    const needsDetails = typeof fsrDoc.data?.details !== "object";
+    if (needsEntries || needsDetails) {
+      updateDocById(fsrDoc.id, { ...fsrDoc, data: ensureFsrDocData(fsrDoc.data) });
+    }
+  }, [fsrDoc?.id]);
 
   const activeDoc = selected?.documents?.find(d=>d.id===activeDocId) || null;
   const hasPhotos = (selected?.photos||[]).length>0;
 
-  // Global collapse helpers
-  const collapseAll = () => updateFsrIssues(prev => prev.map(i => ({...i, collapsed:true})));
-  const expandAll = () => updateFsrIssues(prev => prev.map(i => ({...i, collapsed:false})));
+  const updateFsrData = (mutator) => {
+    if (!fsrDoc) return;
+    const targetId = fsrDoc.id;
+    updateDocs((docs = []) =>
+      (docs || []).map((doc) => {
+        if (doc.id !== targetId) return doc;
+        const base = ensureFsrDocData(doc.data);
+        const result = typeof mutator === "function" ? mutator(base) || base : base;
+        const nextData = ensureFsrDocData(result);
+        return { ...doc, data: nextData };
+      }),
+    );
+  };
+
+  const handleAddEntry = (entry) => {
+    updateFsrData((data) => addEntryWithEffects(data, entry));
+  };
+
+  const handleUpdateEntry = (id, updater) => {
+    updateFsrData((data) => updateEntryInFsrData(data, id, updater));
+  };
+
+  const handleRemoveEntry = (id) => {
+    updateFsrData((data) => removeEntryFromFsrData(data, id));
+  };
+
+  const handleMoveEntry = (id, direction) => {
+    updateFsrData((data) => moveEntryInFsrData(data, id, direction));
+  };
+
+  const handleCollapseAll = (collapsed) => {
+    updateFsrData((data) => setEntriesCollapsedState(data, collapsed));
+  };
 
   return (
     <div className="min-h-dvh bg-gradient-to-b from-gray-50 to-white">
@@ -259,7 +297,7 @@ export default function App() {
                     <div className="font-semibold">{formatRange(selected.startAt, selected.endAt)}</div>
                   </div>
                   <div className="flex items-start gap-2 justify-end flex-wrap">
-                    <button className="px-3 py-2 rounded-xl border flex items-center gap-2 disabled:opacity-40" disabled={(fsrIssues.length||0) === 0} onClick={()=>exportReport(selected)}>
+                    <button className="px-3 py-2 rounded-xl border flex items-center gap-2 disabled:opacity-40" disabled={fsrIssueEntries.length === 0} onClick={()=>exportReport(selected)}>
                       <FileDown size={18}/> Export Report
                     </button>
                     <button className="px-3 py-2 rounded-xl border flex items-center gap-2 disabled:opacity-40" disabled={!hasPhotos} onClick={()=>exportFieldPictures(selected)}>
@@ -279,41 +317,17 @@ export default function App() {
 
               {/* Active Document Body */}
               {activeDoc && (activeDoc.name||"").toLowerCase()==='field service report' && (
-                <div className="rounded-3xl border shadow-sm p-6 bg-white">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold">Field Service Report – Issues</h3>
-                    <div className="flex items-center gap-2">
-                      <button className="px-2 py-1 rounded-xl border" onClick={collapseAll}>Collapse all</button>
-                      <button className="px-2 py-1 rounded-xl border" onClick={expandAll}>Expand all</button>
-                      <button className="px-3 py-2 rounded-xl bg-blue-600 text-white flex items-center gap-2 disabled:opacity-40" disabled={!readyForIssues} onClick={()=>updateFsrIssues(iss => [...iss, { id: uid(), note: "", imageUrl: "", createdAt: new Date().toISOString(), collapsed:false }])}>
-                        <Plus size={18}/> Add issue
-                      </button>
-                    </div>
-                  </div>
-                  {!readyForIssues && (
-                    <div className="mt-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                      Please attach a photo of the Serial Number Tag or check <b>None available</b> before adding issues.
-                    </div>
-                  )}
-
-                  {(fsrIssues||[]).length === 0 ? (
-                    <p className="text-gray-500 mt-4">No issues yet.</p>
-                  ) : (
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {fsrIssues.map((iss, idx) => (
-                        <IssueCard key={iss.id} issue={iss} idx={idx} onChange={(next)=>{
-                          updateFsrIssues(prev => { const arr=[...prev]; arr[idx]=next; return arr; });
-                        }} onRemove={()=>{
-                          updateFsrIssues(prev => prev.filter(x=>x.id!==iss.id));
-                        }} onMove={(dir)=>{
-                          updateFsrIssues(prev => { const arr=[...prev]; const j = idx + (dir==='up'?-1:1); if (j<0||j>=arr.length) return arr; const t=arr[j]; arr[j]=arr[idx]; arr[idx]=t; return arr; });
-                        }} />
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Photo Vault */}
-                  <div className="mt-6">
+                <div className="rounded-3xl border shadow-sm p-6 bg-white space-y-6">
+                  <FsrEntriesSection
+                    entries={fsrEntries}
+                    onAddEntry={handleAddEntry}
+                    onUpdateEntry={handleUpdateEntry}
+                    onRemoveEntry={handleRemoveEntry}
+                    onMoveEntry={handleMoveEntry}
+                    onCollapseAll={handleCollapseAll}
+                    readyForIssue={readyForIssues}
+                  />
+                  <div>
                     <PhotoVault photos={selected.photos||[]} onChange={(next)=>updatePhotos(next)} />
                   </div>
                 </div>

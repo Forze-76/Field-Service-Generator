@@ -1,4 +1,4 @@
-import { uid } from "./fsr";
+import { uid } from "./id";
 
 export const makeEmptyDetails = () => ({
   workSummary: "",
