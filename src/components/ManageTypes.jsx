@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import { saveTypes } from "../utils/fsr";
 import useModalA11y from "../hooks/useModalA11y";
 
-function ManageTypes({ open, onClose, types, setTypes, returnFocusRef }) {
+function ManageTypes({ open, onClose, types, setTypes, returnFocusRef, storage }) {
   const [newType, setNewType] = useState("");
   const containerRef = useRef(null);
   useModalA11y(open, containerRef, { onClose, returnFocusRef });
@@ -30,7 +30,7 @@ function ManageTypes({ open, onClose, types, setTypes, returnFocusRef }) {
                 onClick={() => {
                   const up = types.filter((_, i) => i !== idx);
                   setTypes(up);
-                  saveTypes(up);
+                  saveTypes(up, storage);
                 }}
               >
                 Remove
@@ -54,7 +54,7 @@ function ManageTypes({ open, onClose, types, setTypes, returnFocusRef }) {
               if (types.includes(v)) return;
               const up = [...types, v];
               setTypes(up);
-              saveTypes(up);
+              saveTypes(up, storage);
               setNewType("");
             }}
           >

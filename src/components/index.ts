@@ -9,3 +9,4 @@ export { default as ManualsModal } from "./ManualsModal.jsx";
 export { default as FsrEntriesSection } from "./FsrEntriesSection.jsx";
 export { default as MultiPhotoUpload } from "./MultiPhotoUpload.jsx";
 export { default as StorageMeter } from "./StorageMeter.jsx";
+export { default as UserMenu } from "./UserMenu.jsx";

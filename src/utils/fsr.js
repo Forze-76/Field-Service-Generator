@@ -399,29 +399,46 @@ export const MODELS = ["M", "F", "FS", "21", "H", "ZON", "ZONXL", "POD", "SLAM",
 
 export const SS_MODEL_KEYS = ["B", "D", "DB", "F", "M", "MQ", "21", "CV"]; // plus Other text
 
-export const loadTypes = () => {
+const DEFAULT_TRIP_TYPES = ["Service", "Warranty", "Start Up", "Inspection"];
+
+const resolveStorage = (storage) => {
+  if (storage) return storage;
+  if (typeof window !== "undefined" && window.localStorage) return window.localStorage;
+  if (typeof globalThis !== "undefined" && globalThis.localStorage) return globalThis.localStorage;
+  throw new Error("localStorage is not available");
+};
+
+export const loadTypes = (storage) => {
+  const backing = resolveStorage(storage);
   try {
-    const raw = localStorage.getItem("fsr.tripTypes");
-    if (!raw) return ["Service", "Warranty", "Start Up", "Inspection"];
+    const raw = backing.getItem("fsr.tripTypes");
+    if (!raw) return [...DEFAULT_TRIP_TYPES];
     const arr = JSON.parse(raw);
-    return Array.isArray(arr) && arr.length ? arr : ["Service", "Warranty", "Start Up", "Inspection"];
+    return Array.isArray(arr) && arr.length ? arr : [...DEFAULT_TRIP_TYPES];
   } catch {
-    return ["Service", "Warranty", "Start Up", "Inspection"];
+    return [...DEFAULT_TRIP_TYPES];
   }
 };
 
-export const saveTypes = (arr) => localStorage.setItem("fsr.tripTypes", JSON.stringify(arr));
+export const saveTypes = (arr, storage) => {
+  const backing = resolveStorage(storage);
+  backing.setItem("fsr.tripTypes", JSON.stringify(arr));
+};
 
-export const loadReports = () => {
+export const loadReports = (storage) => {
+  const backing = resolveStorage(storage);
   try {
-    const raw = localStorage.getItem("fsr.reports");
+    const raw = backing.getItem("fsr.reports");
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
   }
 };
 
-export const saveReports = (arr) => localStorage.setItem("fsr.reports", JSON.stringify(arr));
+export const saveReports = (arr, storage) => {
+  const backing = resolveStorage(storage);
+  backing.setItem("fsr.reports", JSON.stringify(arr));
+};
 
 export const isValidJob = (v) => {
   const t = v.trim().toUpperCase();
@@ -535,17 +552,20 @@ const escAttr = (value = "") =>
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
-export function buildReportHtml(report) {
+export function buildReportHtml(report, user) {
   const title = `Field Service Report`;
   const subtitle = `${report.jobNo} • ${report.tripType}${
     report.model ? ` • Model ${report.model}` : ""
   } — ${formatRange(report.startAt, report.endAt)}`;
 
+  const userName = typeof user?.name === "string" && user.name.trim() ? user.name.trim() : null;
+  const userEmail = typeof user?.email === "string" && user.email.trim() ? user.email.trim() : null;
+
   const company = {
     name: "PFlow Industries",
-    techName: "F. Madera",
+    techName: userName || "F. Madera",
     techTitle: "Field Service Tech",
-    email: "fernandocm@pflow.com",
+    email: userEmail || "fernandocm@pflow.com",
     phone: "414-426-2643",
   };
 
@@ -774,8 +794,8 @@ export function buildReportHtml(report) {
   return `<!doctype html><html><head><meta charset="utf-8"/><title>${esc(title)}</title><style>${styles}</style></head><body>${body}</body></html>`;
 }
 
-export function exportReport(report) {
-  const html = buildReportHtml(report);
+export function exportReport(report, user) {
+  const html = buildReportHtml(report, user);
   const win = window.open("", "_blank", "noopener,noreferrer");
   if (!win) return;
   win.document.write(html);
