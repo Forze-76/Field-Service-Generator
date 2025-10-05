@@ -88,15 +88,16 @@ function MultiPhotoUpload({ photos = [], onChange, disabled = false }) {
       />
       {(photos || []).length > 0 && (
         <div className="flex flex-wrap gap-3">
-          {(photos || []).map((photo) => (
+          {(photos || []).map((photo, idx) => (
             <div key={photo.id} className="relative w-28 h-28 rounded-2xl overflow-hidden border bg-gray-50">
-              <img src={photo.imageUrl} alt="Attachment" className="w-full h-full object-cover" />
+              <img src={photo.imageUrl} alt={`Attachment ${idx + 1}`} className="w-full h-full object-cover" />
               {!disabled && (
                 <button
                   type="button"
                   className="absolute top-1 right-1 rounded-full bg-white/90 p-1 shadow"
                   onClick={() => removePhoto(photo.id)}
                   title="Remove photo"
+                  aria-label="Remove photo"
                 >
                   <Trash2 size={14} />
                 </button>

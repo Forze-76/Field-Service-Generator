@@ -7,6 +7,7 @@ function PhotoVault({ photos, onChange }) {
 
   const addFiles = async (files) => {
     const arr = [];
+    // TODO: consider compressing images before storing to reduce localStorage usage.
     for (const f of files) {
       const url = await fileToDataURL(f);
       arr.push({ id: uid(), imageUrl: url, caption: "", createdAt: new Date().toISOString() });
@@ -48,7 +49,7 @@ function PhotoVault({ photos, onChange }) {
           {photos.map((p, idx) => (
             <div key={p.id} className="rounded-2xl border overflow-hidden bg-white">
               {p.imageUrl ? (
-                <img src={p.imageUrl} alt={`photo-${idx + 1}`} className="h-64 w-full object-cover" />
+                <img src={p.imageUrl} alt={`Field photo ${idx + 1}`} className="h-64 w-full object-cover" />
               ) : (
                 <div className="h-64 bg-gray-50" />
               )}
@@ -59,7 +60,11 @@ function PhotoVault({ photos, onChange }) {
                   value={p.caption || ""}
                   onChange={(e) => onChange(photos.map((x) => (x.id === p.id ? { ...x, caption: e.target.value } : x)))}
                 />
-                <button className="p-2 rounded-xl border" onClick={() => onChange(photos.filter((x) => x.id !== p.id))}>
+                <button
+                  className="p-2 rounded-xl border"
+                  onClick={() => onChange(photos.filter((x) => x.id !== p.id))}
+                  aria-label={`Remove photo ${idx + 1}`}
+                >
                   <Trash size={16} />
                 </button>
               </div>

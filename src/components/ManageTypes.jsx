@@ -1,16 +1,23 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { X } from "lucide-react";
 import { saveTypes } from "../utils/fsr";
+import useModalA11y from "../hooks/useModalA11y";
 
-function ManageTypes({ open, onClose, types, setTypes }) {
+function ManageTypes({ open, onClose, types, setTypes, returnFocusRef }) {
   const [newType, setNewType] = useState("");
+  const containerRef = useRef(null);
+  useModalA11y(open, containerRef, { onClose, returnFocusRef });
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+      <div ref={containerRef} tabIndex={-1} className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold">Manage Trip Types</h3>
-          <button className="p-2 rounded-full hover:bg-gray-100" onClick={onClose}>
+          <button
+            className="p-2 rounded-full hover:bg-gray-100"
+            onClick={onClose}
+            aria-label="Close trip types dialog"
+          >
             <X size={18} />
           </button>
         </div>

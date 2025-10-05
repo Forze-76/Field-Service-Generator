@@ -26,6 +26,133 @@ const allowedEntryTypes = Object.keys(FSR_ENTRY_TYPE_META);
 
 const cloneDetailItem = (item) => ({ id: item?.id || uid(), text: typeof item?.text === "string" ? item.text : "" });
 
+const clonePartsNeededItem = (item) => {
+  if (!item || typeof item !== "object") {
+    return { id: uid(), text: "", partNo: "", desc: "", qty: "" };
+  }
+  const text = typeof item.text === "string" ? item.text : "";
+  const partNo = typeof item.partNo === "string" ? item.partNo : "";
+  const desc = typeof item.desc === "string" ? item.desc : "";
+  const qty =
+    typeof item.qty === "string"
+      ? item.qty
+      : typeof item.qty === "number"
+      ? String(item.qty)
+      : "";
+  return { id: item.id || uid(), text, partNo, desc, qty };
+};
+
+const cleanPartField = (value) => (typeof value === "string" ? value.trim() : "");
+
+const qtyToNumber = (value) => {
+  if (value === undefined || value === null) return null;
+  const asString = typeof value === "number" ? String(value) : String(value || "");
+  if (!asString) return null;
+  const parsed = Number.parseFloat(asString);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const formatQtyDisplay = (value) => {
+  if (value === null || value === undefined) return "";
+  const rounded = Math.round(value * 100) / 100;
+  if (Number.isInteger(rounded)) return String(rounded);
+  return String(rounded).replace(/\.0+$/, "").replace(/(\.\d*[1-9])0+$/, "$1");
+};
+
+const formatPartsNeededLabel = (partNo, desc, qty) => {
+  const label = [partNo, desc].map((v) => cleanPartField(v)).filter(Boolean).join(" — ");
+  const base = label || cleanPartField(partNo) || cleanPartField(desc) || "Part";
+  const qtyDisplay = cleanPartField(qty);
+  return qtyDisplay ? `${base} (Qty ${qtyDisplay})` : base;
+};
+
+export function mergePartsNeeded(existing = [], orderPartEntries = []) {
+  const manualItems = [];
+  const aggregatedOrder = [];
+  const aggregatedMap = new Map();
+
+  const ensureRecord = (partNo, desc, preferredId) => {
+    const key = `${partNo.toLowerCase()}__${desc.toLowerCase()}`;
+    let record = aggregatedMap.get(key);
+    if (!record) {
+      record = {
+        id: preferredId || null,
+        partNo,
+        desc,
+        qtyValue: null,
+        qtyFallback: "",
+        manualText: "",
+      };
+      aggregatedMap.set(key, record);
+      aggregatedOrder.push(record);
+    } else if (preferredId && !record.id) {
+      record.id = preferredId;
+    }
+    return record;
+  };
+
+  (existing || []).forEach((item) => {
+    const normalized = clonePartsNeededItem(item);
+    const partNo = cleanPartField(normalized.partNo);
+    const desc = cleanPartField(normalized.desc);
+    if (partNo || desc) {
+      const record = ensureRecord(partNo, desc, normalized.id);
+      if (!record.qtyFallback && normalized.qty) {
+        record.qtyFallback = cleanPartField(normalized.qty);
+      }
+      if (!record.manualText && normalized.text) {
+        record.manualText = normalized.text;
+      }
+    } else if (normalized.text) {
+      manualItems.push({
+        id: normalized.id,
+        text: normalized.text,
+        partNo: "",
+        desc: "",
+        qty: "",
+      });
+    }
+  });
+
+  (orderPartEntries || [])
+    .filter((entry) => entry && entry.type === "orderParts")
+    .forEach((entry) => {
+      (entry.parts || []).forEach((part) => {
+        const partNo = cleanPartField(part?.partNo);
+        const desc = cleanPartField(part?.desc);
+        const qtyRaw = cleanPartField(part?.qty);
+        if (!partNo && !desc) return;
+        const record = ensureRecord(partNo, desc, null);
+        const qtyValue = qtyToNumber(qtyRaw);
+        if (qtyValue !== null) {
+          record.qtyValue = (record.qtyValue ?? 0) + qtyValue;
+        } else if (!record.qtyFallback && qtyRaw) {
+          record.qtyFallback = qtyRaw;
+        }
+      });
+    });
+
+  const aggregatedItems = aggregatedOrder
+    .map((record) => {
+      const qtyDisplay =
+        record.qtyValue !== null && record.qtyValue !== undefined
+          ? formatQtyDisplay(record.qtyValue)
+          : record.qtyFallback;
+      const text = formatPartsNeededLabel(record.partNo, record.desc, qtyDisplay) || record.manualText;
+      if (!text) return null;
+      return {
+        id: record.id || uid(),
+        text,
+        partNo: record.partNo,
+        desc: record.desc,
+        qty: qtyDisplay || "",
+      };
+    })
+    .filter(Boolean);
+
+  return [...aggregatedItems, ...manualItems];
+}
+
 const ensureDetails = (details) => {
   const base = typeof details === "object" && details ? { ...details } : {};
   const workSummary = typeof base.workSummary === "string" ? base.workSummary : "";
@@ -33,7 +160,7 @@ const ensureDetails = (details) => {
     ? base.partsInstalled.map(cloneDetailItem)
     : [];
   const partsNeeded = Array.isArray(base.partsNeeded)
-    ? base.partsNeeded.map(cloneDetailItem)
+    ? base.partsNeeded.map(clonePartsNeededItem)
     : [];
   return { ...base, workSummary, partsInstalled, partsNeeded };
 };
@@ -75,7 +202,7 @@ const legacyIssueToEntry = (issue) => {
     createdAt: normalized.createdAt,
     collapsed: !!normalized.collapsed,
     note: normalized.note,
-    photos: normalizePhotos(normalized.photos),
+    photos: sanitizePhotos(normalized.photos),
   };
 };
 
@@ -91,18 +218,6 @@ const sanitizePartsRow = (row) => {
 const sanitizeParts = (parts) => {
   if (!Array.isArray(parts)) return [];
   return parts.map(sanitizePartsRow).filter(Boolean);
-};
-
-const summarizeParts = (parts) => {
-  if (!Array.isArray(parts)) return [];
-  return parts
-    .filter((row) => row && (row.partNo || row.desc || row.qty))
-    .map((row) => {
-      const label = [row.partNo, row.desc].filter(Boolean).join(" — ") || "Part";
-      const qty = row.qty ? ` (Qty ${row.qty})` : "";
-      return `${label}${qty}`.trim();
-    })
-    .filter(Boolean);
 };
 
 const sanitizeFollowUp = (value) => {
@@ -183,9 +298,15 @@ export const ensureFsrDocData = (data) => {
 
   const entries = mergedEntries;
 
+  const orderPartEntries = entries.filter((entry) => entry.type === "orderParts");
+  const normalizedDetails = {
+    ...details,
+    partsNeeded: mergePartsNeeded(details.partsNeeded, orderPartEntries),
+  };
+
   const syncedIssues = entriesToLegacyIssues(entries);
 
-  return { ...base, details, entries, issues: syncedIssues };
+  return { ...base, details: normalizedDetails, entries, issues: syncedIssues };
 };
 
 export const makeEmptyFsrDocData = () => ensureFsrDocData({ entries: [], issues: [] });
@@ -218,17 +339,13 @@ export const addEntryToFsrData = (data, entry) => {
 export const addEntryWithEffects = (data, entry) => {
   let next = addEntryToFsrData(data, entry);
   if (entry?.type === "orderParts") {
-    const summaries = summarizeParts(entry.parts);
-    if (summaries.length) {
-      const existing = Array.isArray(next.details?.partsNeeded) ? next.details.partsNeeded : [];
-      next = ensureFsrDocData({
-        ...next,
-        details: {
-          ...next.details,
-          partsNeeded: [...existing, ...summaries.map((text) => ({ id: uid(), text }))],
-        },
-      });
-    }
+    const existing = Array.isArray(next.details?.partsNeeded) ? next.details.partsNeeded : [];
+    const orderPartEntries = next.entries.filter((item) => item.type === "orderParts");
+    const merged = mergePartsNeeded(existing, orderPartEntries);
+    next = ensureFsrDocData({
+      ...next,
+      details: { ...next.details, partsNeeded: merged },
+    });
   }
   return ensureFsrDocData(next);
 };
@@ -343,7 +460,19 @@ export function formatRange(startAt, endAt) {
   }
 }
 
-const escapeHtml = (value = "") =>
+export function computeDowntimeMinutes(startAt, endAt) {
+  try {
+    const start = new Date(startAt);
+    const end = new Date(endAt);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+    const diffMs = Math.max(0, end.getTime() - start.getTime());
+    return Math.round(diffMs / 60000);
+  } catch {
+    return 0;
+  }
+}
+
+export const esc = (value = "") =>
   String(value)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -399,10 +528,17 @@ export function makeEmptyServiceSummaryData() {
   };
 }
 
+const escAttr = (value = "") =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
 export function buildReportHtml(report) {
   const title = `Field Service Report`;
   const subtitle = `${report.jobNo} • ${report.tripType}${
-    report.model ? ` • Model ${report.model}` : ``
+    report.model ? ` • Model ${report.model}` : ""
   } — ${formatRange(report.startAt, report.endAt)}`;
 
   const company = {
@@ -413,225 +549,234 @@ export function buildReportHtml(report) {
     phone: "414-426-2643",
   };
 
-  const docsHTML =
-    (report.documents || [])
-      .map((d) => `<div>${d.done ? "☑" : "☐"} ${escapeHtml(d.name || "Untitled document")}</div>`)
-      .join("") || `<div>☐ Field Service Report</div>`;
+  const docsHTML = (report.documents || []).length
+    ? (report.documents || [])
+        .map((d) => `<div>${d.done ? "☑" : "☐"} ${esc(d.name || "Untitled document")}</div>`)
+        .join("")
+    : `<div>☐ Field Service Report</div>`;
 
   const serialHTML = report.serialTagImageUrl
-    ? `<div class="serial"><div><b>Serial Tag</b><div class="note">Attached</div></div><img src="${report.serialTagImageUrl}" alt="Serial tag"/></div>`
+    ? `<div class="serial"><div><b>Serial Tag</b><div class="note">Attached</div></div><img src="${escAttr(
+        report.serialTagImageUrl,
+      )}" alt="Serial tag photo"/></div>`
     : `<div class="serial"><div><b>Serial Tag</b><div class="note">${
         report.serialTagMissing ? "Not available (checked)" : "Not provided"
       }</div></div></div>`;
 
   const fsrDoc = (report.documents || []).find((d) => (d.name || "").toLowerCase() === "field service report");
   const fsrData = ensureFsrDocData(fsrDoc?.data);
-  const allEntries = fsrData.entries || [];
-  const issueEntries = allEntries.filter((entry) => entry.type === "issue");
-  const correctionEntries = allEntries.filter((entry) => entry.type === "correction");
-  const orderPartEntries = allEntries.filter((entry) => entry.type === "orderParts");
-  const docRequestEntries = allEntries.filter((entry) => entry.type === "docRequest");
-  const followUpEntries = allEntries.filter((entry) => entry.type === "followUp");
-  const commentaryEntries = allEntries.filter((entry) => entry.type === "commentary");
+  const entries = fsrData.entries || [];
+  const details = fsrData.details || {};
 
-  const escapeAttr = (value = "") =>
-    String(value)
-      .replace(/&/g, "&amp;")
-      .replace(/"/g, "&quot;")
-      .replace(/</g, "&lt;");
+  const issueEntries = entries.filter((entry) => entry.type === "issue");
+  const correctionEntries = entries.filter((entry) => entry.type === "correction");
+  const orderPartEntries = entries.filter((entry) => entry.type === "orderParts");
+  const docRequestEntries = entries.filter((entry) => entry.type === "docRequest");
+  const followUpEntries = entries.filter((entry) => entry.type === "followUp");
+  const commentaryEntries = entries.filter((entry) => entry.type === "commentary");
 
-  const renderPhotos = (photos) => {
-    if (!photos || !photos.length) return "";
-    return `<div class="photo-grid">${photos
-      .map((photo, idx) => `<img src="${escapeAttr(photo.imageUrl)}" alt="Attachment ${idx + 1}"/>`)
-      .join("")}</div>`;
-  };
+  const partsInstalledItems = (details.partsInstalled || [])
+    .map((item) => cleanPartField(item.text))
+    .filter(Boolean);
+
+  const partsNeededRows = mergePartsNeeded(details.partsNeeded, orderPartEntries);
+
+  const partNotes = orderPartEntries
+    .map((entry, idx) => ({ idx: idx + 1, note: cleanPartField(entry.note) }))
+    .filter((item) => item.note);
 
   const renderNoteWithFallback = (note, fallback = "(No description)") => {
     const value = typeof note === "string" ? note.trim() : "";
-    if (!value) return `<div class="note muted">${escapeHtml(fallback)}</div>`;
-    return `<div class="note">${escapeHtml(value)}</div>`;
+    if (!value) return `<div class="note muted">${esc(fallback)}</div>`;
+    return `<div class="note">${esc(value)}</div>`;
   };
 
-  const correctionsHTML = correctionEntries
-    .map(
-      (entry, idx) => `
+  const renderPhotos = (photos, altPrefix, { showCaptions = false } = {}) => {
+    const safePhotos = (photos || []).filter((photo) => photo && photo.imageUrl);
+    if (!safePhotos.length) return "";
+    return `<div class="photo-grid">${safePhotos
+      .map((photo, idx) => {
+        const caption = showCaptions && photo.caption
+          ? `<figcaption class="photo-caption">${esc(photo.caption)}</figcaption>`
+          : "";
+        return `<figure class="photo-card"><img src="${escAttr(photo.imageUrl)}" alt="${escAttr(
+          `${altPrefix} ${idx + 1}`,
+        )}"/>${caption}</figure>`;
+      })
+      .join("")}</div>`;
+  };
+
+  const coreDetailsBlocks = [];
+  const workSummary = cleanPartField(details.workSummary);
+  if (workSummary) {
+    coreDetailsBlocks.push(`
       <div class="entry">
-        <div class="entry-title">Correction #${idx + 1} — ${escapeHtml(fmtDateTime(entry.createdAt))}</div>
-        ${renderNoteWithFallback(entry.note, "(No description)")}
-        ${renderPhotos(entry.photos)}
+        <div class="entry-title">Work Summary</div>
+        <div class="note">${esc(workSummary)}</div>
       </div>
-    `,
-    )
-    .join("");
+    `);
+  }
 
-  const orderPartsHTML = orderPartEntries
-    .map((entry, idx) => {
-      const rows = (entry.parts || []).length
-        ? `<table class="entry-table"><thead><tr><th>Part #</th><th>Description</th><th>Qty</th></tr></thead><tbody>${entry.parts
-            .map(
-              (part) => `<tr><td>${escapeHtml(part.partNo || "-")}</td><td>${escapeHtml(part.desc || "-")}</td><td>${escapeHtml(part.qty || "-")}</td></tr>`,
-            )
-            .join("")}</tbody></table>`
-        : `<div class="note muted">(No parts listed)</div>`;
-      const note = entry.note && entry.note.trim() ? `<div class="note">${escapeHtml(entry.note)}</div>` : "";
-      return `
-        <div class="entry">
-          <div class="entry-title">Order Parts #${idx + 1} — ${escapeHtml(fmtDateTime(entry.createdAt))}</div>
-          ${rows}
-          ${note}
-        </div>
-      `;
-    })
-    .join("");
-
-  const docRequestsHTML = docRequestEntries
-    .map(
-      (entry, idx) => `
+  commentaryEntries.forEach((entry, idx) => {
+    coreDetailsBlocks.push(`
       <div class="entry">
-        <div class="entry-title">Document Request #${idx + 1} — ${escapeHtml(fmtDateTime(entry.createdAt))}</div>
-        <div class="note">Requested: ${escapeHtml(docRequestLabel(entry.docKind))}</div>
-        ${entry.docNotes && entry.docNotes.trim() ? `<div class="note">${escapeHtml(entry.docNotes)}</div>` : ""}
-      </div>
-    `,
-    )
-    .join("");
-
-  const followUpsHTML = followUpEntries.length
-    ? `<table class="entry-table"><thead><tr><th>Title</th><th>Details</th></tr></thead><tbody>${followUpEntries
-        .map(
-          (entry) => `<tr><td>${escapeHtml(entry.followUp?.title || "")}</td><td>${escapeHtml(entry.followUp?.details || "")}</td></tr>`,
-        )
-        .join("")}</tbody></table>`
-    : "";
-
-  const commentaryHTML = commentaryEntries
-    .map(
-      (entry) => `
-      <div class="entry">
-        <div class="entry-title">Commentary — ${escapeHtml(fmtDateTime(entry.createdAt))}</div>
+        <div class="entry-title">Commentary #${idx + 1} — ${esc(fmtDateTime(entry.createdAt))}</div>
         ${renderNoteWithFallback(entry.note, "(No commentary)")}
       </div>
-    `,
-    )
-    .join("");
+    `);
+  });
 
-  const entryBlocks = [];
-  if (correctionEntries.length) entryBlocks.push(`<div class="entry-block"><h4>Corrections</h4>${correctionsHTML}</div>`);
-  if (orderPartEntries.length) entryBlocks.push(`<div class="entry-block"><h4>Order Parts</h4>${orderPartsHTML}</div>`);
-  if (docRequestEntries.length) entryBlocks.push(`<div class="entry-block"><h4>Document Requests</h4>${docRequestsHTML}</div>`);
-  if (followUpEntries.length) entryBlocks.push(`<div class="entry-block"><h4>Follow-Ups</h4>${followUpsHTML}</div>`);
-  if (commentaryEntries.length) entryBlocks.push(`<div class="entry-block"><h4>Commentary</h4>${commentaryHTML}</div>`);
+  const coreDetailsHTML = coreDetailsBlocks.length
+    ? `<div class="section"><div class="section-title">Core Details</div>${coreDetailsBlocks.join("")}</div>`
+    : "";
 
-  const entriesHTML = entryBlocks.length ? `<div class="section"><b>Entries</b>${entryBlocks.join("")}</div>` : "";
+  const partsInstalledHTML = partsInstalledItems.length
+    ? `<div class="section"><div class="section-title">Parts Installed</div><ul class="simple-list">${partsInstalledItems
+        .map((item) => `<li>${esc(item)}</li>`)
+        .join("")}</ul></div>`
+    : "";
+
+  const partsNeededHTML = partsNeededRows.length
+    ? `<div class="section"><div class="section-title">Parts Needed</div><table class="entry-table"><thead><tr><th>Part #</th><th>Description</th><th>Qty</th></tr></thead><tbody>${partsNeededRows
+        .map(
+          (row) => `<tr><td>${esc(row.partNo || "-")}</td><td>${esc(row.desc || "-")}</td><td>${esc(row.qty || "-")}</td></tr>`,
+        )
+        .join("")}</tbody></table>${
+        partNotes.length
+          ? `<div class="note muted">Order notes:</div><ul class="simple-list">${partNotes
+              .map((item) => `<li>Order ${item.idx}: ${esc(item.note)}</li>`)
+              .join("")}</ul>`
+          : ""
+      }</div>`
+    : "";
+
+  const correctionsHTML = correctionEntries.length
+    ? `<div class="section"><div class="section-title">Corrections</div>${correctionEntries
+        .map(
+          (entry, idx) => `
+            <div class="entry">
+              <div class="entry-title">Correction #${idx + 1} — ${esc(fmtDateTime(entry.createdAt))}</div>
+              ${renderNoteWithFallback(entry.note, "(No description)")}
+              ${renderPhotos(entry.photos, "Correction photo")}
+            </div>
+          `,
+        )
+        .join("")}</div>`
+    : "";
+
+  const docRequestsHTML = docRequestEntries.length
+    ? `<div class="section"><div class="section-title">Document Requests</div>${docRequestEntries
+        .map(
+          (entry, idx) => `
+            <div class="entry">
+              <div class="entry-title">Document Request #${idx + 1} — ${esc(fmtDateTime(entry.createdAt))}</div>
+              <div class="note">Requested: ${esc(docRequestLabel(entry.docKind))}</div>
+              ${entry.docNotes && entry.docNotes.trim() ? `<div class="note">${esc(entry.docNotes)}</div>` : ""}
+            </div>
+          `,
+        )
+        .join("")}</div>`
+    : "";
+
+  const followUpsHTML = followUpEntries.length
+    ? `<div class="section"><div class="section-title">Follow-Ups</div><table class="entry-table"><thead><tr><th>Title</th><th>Details</th></tr></thead><tbody>${followUpEntries
+        .map(
+          (entry) => `<tr><td>${esc(entry.followUp?.title || "")}</td><td>${esc(entry.followUp?.details || "")}</td></tr>`,
+        )
+        .join("")}</tbody></table></div>`
+    : "";
 
   const issuesHTML = issueEntries.length
-    ? issueEntries
+    ? `<div class="section"><div class="section-title">Issues</div>${issueEntries
         .map(
-          (iss, i) => `
-      <div class="issue">
-        <h3>Issue #${i + 1} — ${escapeHtml(fmtDateTime(iss.createdAt))}</h3>
-        ${renderNoteWithFallback(iss.note, "(No description)")}
-        ${renderPhotos(iss.photos)}
-      </div>
-    `,
+          (iss, idx) => `
+            <div class="entry">
+              <div class="entry-title">Issue #${idx + 1} — ${esc(fmtDateTime(iss.createdAt))}</div>
+              ${renderNoteWithFallback(iss.note, "(No description)")}
+              ${renderPhotos(iss.photos, "Issue photo")}
+            </div>
+          `,
         )
-        .join("")
-    : `<p style="color:#666;">No issues recorded.</p>`;
+        .join("")}</div>`
+    : "";
 
-  const photos = report.photos || [];
-  const photosHTML = photos.length
-    ? photos
-        .map(
-          (p, i) => `
-      <div class="issue">
-        ${p.imageUrl ? `<img src="${p.imageUrl}" alt="Photo ${i + 1}"/>` : ""}
-        ${p.caption ? `<div class="note">${escapeHtml(p.caption)}</div>` : ""}
-      </div>
-    `,
-        )
-        .join("")
-    : `<p style="color:#666;">No field pictures.</p>`;
+  const fieldPhotosHTML = renderPhotos(report.photos, "Field photo", { showCaptions: true });
+  const fieldPicturesSection = fieldPhotosHTML
+    ? `<div class="section"><div class="section-title">Field Pictures</div>${fieldPhotosHTML}</div>`
+    : "";
 
   const generatedAt = new Date().toLocaleString();
 
-  return `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>${escapeHtml(title)}</title>
-    <style>
-      * { box-sizing: border-box; }
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
-      .page { width: 8.5in; min-height: 11in; margin: 0 auto; padding: 0.5in; }
-      .hdr { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid #ddd; padding-bottom:12px; }
-      .title { font-size: 26px; font-weight: 800; }
-      .subtitle { color:#666; margin-top:4px; font-size: 13px; }
-      .tech { text-align:right; font-size: 12px; line-height: 1.35; }
-      .serial { margin-top: 12px; display:flex; gap: 12px; align-items:flex-start; }
-      .serial img { max-height: 140px; border:1px solid #eee; border-radius:8px; }
-      .section { margin-top: 18px; padding-top: 12px; border-top: 1px solid #eee; }
-      .issue { page-break-inside: avoid; margin-top: 12px; }
-      .issue h3 { margin: 0 0 8px 0; font-size: 16px; }
-      .issue img { max-width: 100%; height: auto; border: 1px solid #eee; border-radius: 8px; }
-      .note { margin-top: 8px; white-space: pre-wrap; font-size: 13px; }
-      .note.muted { color:#6b7280; font-style: italic; }
-      .entry-block { margin-top: 14px; }
-      .entry-block h4 { margin: 0 0 6px 0; font-size: 15px; }
-      .entry { margin-top: 8px; page-break-inside: avoid; }
-      .entry-title { font-weight: 600; font-size: 13px; color:#111827; margin-bottom: 4px; }
-      .photo-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px; margin-top:8px; }
-      .photo-grid img { width:100%; height:auto; border:1px solid #eee; border-radius:8px; }
-      .entry-table { width:100%; border-collapse: collapse; margin-top:6px; font-size:13px; }
-      .entry-table th, .entry-table td { border:1px solid #e5e7eb; padding:6px; text-align:left; vertical-align:top; }
-      .entry-table th { background:#f3f4f6; }
-      .footer { text-align:center; color:#888; font-size: 11px; margin-top: 24px; }
-      @media print { body { background: white; } }
-    </style>
-  </head>
-  <body>
+  const styles = `
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
+    .page { width: 8.5in; min-height: 11in; margin: 0 auto; padding: 0.5in; }
+    .hdr { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid #ddd; padding-bottom:12px; }
+    .title { font-size: 26px; font-weight: 800; }
+    .subtitle { color:#666; margin-top:4px; font-size: 13px; }
+    .tech { text-align:right; font-size: 12px; line-height: 1.35; }
+    .serial { margin-top: 12px; display:flex; gap: 12px; align-items:flex-start; }
+    .serial img { max-height: 140px; border:1px solid #eee; border-radius:8px; }
+    .section { margin-top: 18px; padding-top: 12px; border-top: 1px solid #eee; }
+    .section-title { font-weight: 600; font-size: 15px; margin-bottom: 6px; }
+    .entry { margin-top: 10px; page-break-inside: avoid; }
+    .entry-title { font-weight: 600; font-size: 13px; color:#111827; margin-bottom: 4px; }
+    .note { margin-top: 8px; white-space: pre-wrap; font-size: 13px; }
+    .note.muted { color:#6b7280; font-style: italic; }
+    .simple-list { margin: 0; padding-left: 20px; font-size: 13px; }
+    .simple-list li { margin-bottom: 4px; }
+    .entry-table { width:100%; border-collapse: collapse; margin-top:6px; font-size:13px; }
+    .entry-table th, .entry-table td { border:1px solid #e5e7eb; padding:6px; text-align:left; vertical-align:top; }
+    .entry-table th { background:#f3f4f6; }
+    .photo-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-top:10px; }
+    .photo-card { border:1px solid #e5e7eb; border-radius:10px; overflow:hidden; background:#fff; }
+    .photo-card img { width:100%; height:auto; display:block; }
+    .photo-caption { margin:0; padding:6px 8px; font-size:12px; color:#374151; background:#f9fafb; }
+    .footer { text-align:center; color:#888; font-size: 11px; margin-top: 24px; }
+    @media print { body { background: white; } }
+  `;
+
+  const body = `
     <div class="page">
       <div class="hdr">
         <div>
-          <div class="title">${escapeHtml(title)}</div>
-          <div class="subtitle">${escapeHtml(subtitle)}</div>
+          <div class="title">${esc(title)}</div>
+          <div class="subtitle">${esc(subtitle)}</div>
         </div>
         <div class="tech">
-          ${escapeHtml(company.name)}<br/>
-          ${escapeHtml(`${company.techName} — ${company.techTitle}`)}<br/>
-          Email: ${escapeHtml(company.email)}<br/>
-          Phone: ${escapeHtml(company.phone)}
+          ${esc(company.name)}<br/>
+          ${esc(`${company.techName} — ${company.techTitle}`)}<br/>
+          Email: ${esc(company.email)}<br/>
+          Phone: ${esc(company.phone)}
         </div>
       </div>
 
       ${serialHTML}
 
       <div class="section">
-        <b>Documents to Fill</b>
-        <div style="margin-top:6px;">${docsHTML}</div>
+        <div class="section-title">Documents</div>
+        <div class="note">${docsHTML}</div>
       </div>
 
-      ${entriesHTML}
+      ${coreDetailsHTML}
+      ${partsInstalledHTML}
+      ${partsNeededHTML}
+      ${correctionsHTML}
+      ${docRequestsHTML}
+      ${followUpsHTML}
+      ${issuesHTML}
+      ${fieldPicturesSection}
 
-      <div class="section">
-        <b>Field Service Report – Issues</b>
-        ${issuesHTML}
-      </div>
-
-      <div class="section">
-        <b>Field Pictures</b>
-        ${photosHTML}
-      </div>
-
-      <div class="footer">Generated by FSR Demo • ${escapeHtml(generatedAt)}</div>
+      <div class="footer">Generated by FSR Demo • ${esc(generatedAt)}</div>
     </div>
-  </body>
-</html>`;
+  `;
+
+  return `<!doctype html><html><head><meta charset="utf-8"/><title>${esc(title)}</title><style>${styles}</style></head><body>${body}</body></html>`;
 }
 
 export function exportReport(report) {
   const html = buildReportHtml(report);
-  const win = window.open("", "_blank");
+  const win = window.open("", "_blank", "noopener,noreferrer");
   if (!win) return;
   win.document.write(html);
   win.document.close();
@@ -641,34 +786,28 @@ export function exportReport(report) {
 export function exportFieldPictures(report) {
   const title = `Field Pictures — ${report.jobNo}`;
   const styles = `
-  <style>
     body{font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin:0; padding:24px;}
     h1{font-size:22px; margin:0 0 12px 0;}
     .grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:12px;}
-    .card{border:1px solid #e5e7eb; border-radius:12px; overflow:hidden;}
+    .card{border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; background:#fff;}
     .card img{width:100%; height:220px; object-fit:cover; display:block;}
-    .cap{padding:8px 10px; font-size:12px; color:#374151;}
-  </style>`;
-  const photos = report.photos || [];
-  const html = `
-    <h1>${title}</h1>
-    <div class="grid">
-      ${photos
+    .cap{padding:8px 10px; font-size:12px; color:#374151; background:#f9fafb;}
+  `;
+  const photos = (report.photos || []).filter((p) => p && p.imageUrl);
+  const grid = photos.length
+    ? `<div class="grid">${photos
         .map(
-          (p, idx) => `<div class="card">${p.imageUrl ? `<img src="${p.imageUrl}"/>` : ""}${
-            p.caption
-              ? `<div class="cap">${p.caption
-                  .replace(/&/g, "&amp;")
-                  .replace(/</g, "&lt;")
-                  .replace(/>/g, "&gt;")}</div>`
-              : ""
-          }</div>`,
+          (p, idx) => `<div class="card"><img src="${escAttr(p.imageUrl)}" alt="${escAttr(
+            `Field photo ${idx + 1}`,
+          )}"/>${p.caption ? `<div class="cap">${esc(p.caption)}</div>` : ""}</div>`,
         )
-        .join("")}
-    </div>`;
-  const win = window.open("", "_blank");
+        .join("")}</div>`
+    : `<p style="color:#4b5563;">No field pictures attached.</p>`;
+  const body = `<h1>${esc(title)}</h1>${grid}`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${esc(title)}</title><style>${styles}</style></head><body>${body}</body></html>`;
+  const win = window.open("", "_blank", "noopener,noreferrer");
   if (!win) return;
-  win.document.write(`<!doctype html><html><head><meta charset="utf-8"/>${styles}</head><body>${html}</body></html>`);
+  win.document.write(html);
   win.document.close();
   win.focus();
 }
