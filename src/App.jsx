@@ -22,6 +22,7 @@ import {
   IssueCard,
   ManageDocsModal,
   ManageTypes,
+  ManualsModal,
   PhotoVault,
   SerialTagCard,
   ServiceSummaryForm,

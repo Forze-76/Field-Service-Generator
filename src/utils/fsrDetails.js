@@ -12,6 +12,24 @@ const cloneState = (details = {}) => ({
   partsNeeded: Array.isArray(details.partsNeeded) ? [...details.partsNeeded] : [],
 });
 
+const STORE_KEY = "__pflowFsrDetailsScopes";
+const DEFAULT_SCOPE = "default";
+
+const getStore = () => {
+  const root = typeof globalThis !== "undefined" ? globalThis : {};
+  if (!root[STORE_KEY]) {
+    root[STORE_KEY] = new Map();
+  }
+  return root[STORE_KEY];
+};
+
+const scopedStore = getStore();
+
+const scopeId = (scope) => {
+  if (scope === undefined || scope === null || scope === "") return DEFAULT_SCOPE;
+  return String(scope);
+};
+
 export function updateDetails(details, action) {
   const state = cloneState(details ?? makeEmptyDetails());
   switch (action?.type) {
@@ -51,4 +69,36 @@ export function updateDetails(details, action) {
     default:
       return state;
   }
+}
+
+export function ensureDetailsScope(scope) {
+  const key = scopeId(scope);
+  if (!scopedStore.has(key)) {
+    scopedStore.set(key, makeEmptyDetails());
+  }
+  return scopedStore.get(key);
+}
+
+export function setDetailsScope(scope, details) {
+  const key = scopeId(scope);
+  const next = cloneState(details);
+  scopedStore.set(key, next);
+  return next;
+}
+
+export function updateDetailsInScope(scope, action) {
+  const key = scopeId(scope);
+  const current = ensureDetailsScope(scope);
+  const next = updateDetails(current, action);
+  scopedStore.set(key, next);
+  return next;
+}
+
+export function clearDetailsScope(scope) {
+  const key = scopeId(scope);
+  scopedStore.delete(key);
+}
+
+export function resetDetailsScopes() {
+  scopedStore.clear();
 }
