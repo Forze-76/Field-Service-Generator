@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import MultiPhotoUpload from "./MultiPhotoUpload.jsx";
 import { FSR_ENTRY_TYPE_META, docRequestLabel, fmtDateTime, uid } from "../utils/fsr";
+import useModalA11y from "../hooks/useModalA11y";
 
 const ENTRY_OPTIONS = [
   {
@@ -237,6 +238,7 @@ function EntryForm({ value, onChange }) {
                   className="p-2 rounded-xl border text-gray-500 hover:text-red-600"
                   onClick={() => removePart(index)}
                   title="Remove row"
+                  aria-label="Remove part row"
                 >
                   <Trash2 size={16} />
                 </button>
@@ -365,6 +367,7 @@ function FsrEntryCard({ entry, index, total, onUpdate, onRemove, onMove, onToggl
             className="p-2 rounded-xl border"
             onClick={() => onToggleCollapse(entry.id, !collapsed)}
             title={collapsed ? "Expand" : "Collapse"}
+            aria-label={collapsed ? "Expand entry" : "Collapse entry"}
           >
             {collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
           </button>
@@ -374,6 +377,7 @@ function FsrEntryCard({ entry, index, total, onUpdate, onRemove, onMove, onToggl
             onClick={() => onMove(entry.id, "up")}
             disabled={index === 0}
             title="Move up"
+            aria-label="Move entry up"
           >
             <ArrowUp size={16} />
           </button>
@@ -383,6 +387,7 @@ function FsrEntryCard({ entry, index, total, onUpdate, onRemove, onMove, onToggl
             onClick={() => onMove(entry.id, "down")}
             disabled={index === total - 1}
             title="Move down"
+            aria-label="Move entry down"
           >
             <ArrowDown size={16} />
           </button>
@@ -391,6 +396,7 @@ function FsrEntryCard({ entry, index, total, onUpdate, onRemove, onMove, onToggl
             className="p-2 rounded-xl border text-red-600"
             onClick={() => onRemove(entry.id)}
             title="Delete entry"
+            aria-label={`Delete ${meta.label}`}
           >
             <Trash2 size={16} />
           </button>
@@ -417,10 +423,13 @@ function FsrEntriesSection({
   const [modalOpen, setModalOpen] = useState(false);
   const [draftType, setDraftType] = useState(null);
   const [draft, setDraft] = useState(null);
+  const modalTriggerRef = useRef(null);
+  const modalContainerRef = useRef(null);
 
-  const openModal = () => {
+  const openModal = (trigger) => {
     setDraftType(null);
     setDraft(null);
+    modalTriggerRef.current = trigger || null;
     setModalOpen(true);
   };
 
@@ -429,6 +438,8 @@ function FsrEntriesSection({
     setDraftType(null);
     setDraft(null);
   };
+
+  useModalA11y(modalOpen, modalContainerRef, { onClose: closeModal, returnFocusRef: modalTriggerRef });
 
   const startDraft = (type) => {
     setDraftType(type);
@@ -447,8 +458,9 @@ function FsrEntriesSection({
     closeModal();
   };
 
-  const handleQuickIssue = () => {
+  const handleQuickIssue = (event) => {
     if (!readyForIssue) return;
+    modalTriggerRef.current = event?.currentTarget || null;
     setModalOpen(true);
     startDraft("issue");
   };
@@ -475,10 +487,17 @@ function FsrEntriesSection({
               </button>
             </>
           )}
-          <button className="px-3 py-2 rounded-xl border flex items-center gap-2 text-sm" onClick={handleQuickIssue} disabled={!readyForIssue}>
+          <button
+            className="px-3 py-2 rounded-xl border flex items-center gap-2 text-sm"
+            onClick={handleQuickIssue}
+            disabled={!readyForIssue}
+          >
             <Camera size={16} /> Add Issue
           </button>
-          <button className="px-4 py-2 rounded-xl bg-blue-600 text-white flex items-center gap-2 text-sm" onClick={openModal}>
+          <button
+            className="px-4 py-2 rounded-xl bg-blue-600 text-white flex items-center gap-2 text-sm"
+            onClick={(event) => openModal(event.currentTarget)}
+          >
             <Plus size={18} /> Add
           </button>
         </div>
@@ -512,13 +531,17 @@ function FsrEntriesSection({
       )}
 
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-3xl rounded-3xl bg-white p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" role="dialog" aria-modal="true">
+          <div ref={modalContainerRef} tabIndex={-1} className="w-full max-w-3xl rounded-3xl bg-white p-6 shadow-xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-semibold">
                 {draftType ? FSR_ENTRY_TYPE_META[draftType]?.label || "New Entry" : "Add entry"}
               </h3>
-              <button className="p-2 rounded-full hover:bg-gray-100" onClick={closeModal}>
+              <button
+                className="p-2 rounded-full hover:bg-gray-100"
+                onClick={closeModal}
+                aria-label="Close add entry dialog"
+              >
                 <X size={18} />
               </button>
             </div>

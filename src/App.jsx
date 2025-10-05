@@ -1,5 +1,5 @@
 // FSR iPad – Web Demo Prototype (React) v0.8 (widgets removed)
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, FileDown, X, Settings, Trash, Search, FolderPlus, Calendar, Home as HomeIcon, Cog, BookOpen } from "lucide-react";
 
 import {
@@ -32,7 +32,9 @@ import {
   PhotoVault,
   SerialTagCard,
   ServiceSummaryForm,
+  StorageMeter,
 } from "./components";
+import useModalA11y from "./hooks/useModalA11y";
 
 // ===================== Main App =====================
 export default function App() {
@@ -60,6 +62,13 @@ export default function App() {
 
   // Delete confirm state
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [duplicatePrompt, setDuplicatePrompt] = useState(null);
+
+  const manageTriggerRef = useRef(null);
+  const docsTriggerRef = useRef(null);
+  const manualsTriggerRef = useRef(null);
+  const setupTriggerRef = useRef(null);
+  const deleteTriggerRef = useRef(null);
 
   // Persist on changes
   useEffect(()=> saveReports(reports), [reports]);
@@ -104,6 +113,18 @@ export default function App() {
     setSelectedId(r.id);
     setSetupOpen(false);
     setModel("");
+    setDuplicatePrompt(null);
+  }
+
+  function handleCreateReport() {
+    if (!canCreate) return;
+    const normalized = jobNo.trim().toLowerCase();
+    const existing = reports.find((report) => report.jobNo.trim().toLowerCase() === normalized);
+    if (existing) {
+      setDuplicatePrompt({ id: existing.id, jobNo: existing.jobNo });
+      return;
+    }
+    createReport();
   }
 
   function updateReport(patch) {
@@ -138,6 +159,16 @@ export default function App() {
     return reports.filter(r => r.jobNo.toLowerCase().includes(q) || r.tripType.toLowerCase().includes(q) || (r.model||'').toLowerCase().includes(q) || (r.sharedSite?.jobName||'').toLowerCase().includes(q));
   }, [reports, search]);
 
+  const reportsSizeBytes = useMemo(() => {
+    try {
+      const json = JSON.stringify(reports || []);
+      if (!json) return 0;
+      return new TextEncoder().encode(json).length;
+    } catch {
+      return 0;
+    }
+  }, [reports]);
+
   const readyForIssues = selected ? (!!selected.serialTagImageUrl || !!selected.serialTagMissing) : false;
   const fsrDoc = selected?.documents?.find(d => (d.name||"").toLowerCase() === 'field service report');
   const fsrData = ensureFsrDocData(fsrDoc?.data);
@@ -155,6 +186,7 @@ export default function App() {
 
   const activeDoc = selected?.documents?.find(d=>d.id===activeDocId) || null;
   const hasPhotos = (selected?.photos||[]).length>0;
+  const isFsrTabActive = (activeDoc?.name || "").toLowerCase() === "field service report";
 
   const updateFsrData = (mutator) => {
     if (!fsrDoc) return;
@@ -199,7 +231,15 @@ export default function App() {
           <aside className="w-[320px] border-r bg-white/70 backdrop-blur sticky top-0 h-dvh p-4 hidden md:block">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-extrabold">Reports</h2>
-              <button className="p-2 rounded-xl border hover:bg-gray-50" title="New report" onClick={()=>setSetupOpen(true)}>
+              <button
+                className="p-2 rounded-xl border hover:bg-gray-50"
+                title="New report"
+                aria-label="Create new report"
+                onClick={(event) => {
+                  setupTriggerRef.current = event.currentTarget;
+                  setSetupOpen(true);
+                }}
+              >
                 <FolderPlus size={18}/>
               </button>
             </div>
@@ -224,7 +264,11 @@ export default function App() {
                     <button
                       className="p-2 rounded-xl border text-red-600 hover:bg-red-50"
                       title="Delete report"
-                      onClick={()=>setDeleteTarget({ id: r.id, jobNo: r.jobNo })}
+                      aria-label={`Delete ${r.jobNo}`}
+                      onClick={(event)=>{
+                        deleteTriggerRef.current = event.currentTarget;
+                        setDeleteTarget({ id: r.id, jobNo: r.jobNo });
+                      }}
                     >
                       <Trash size={16}/>
                     </button>
@@ -242,17 +286,34 @@ export default function App() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               {selected && (
-                <button className="p-2 rounded-xl border hover:bg-gray-50" onClick={()=>setSelectedId(null)} title="Home">
+                <button
+                  className="p-2 rounded-xl border hover:bg-gray-50"
+                  onClick={()=>setSelectedId(null)}
+                  title="Home"
+                  aria-label="Back to report list"
+                >
                   <HomeIcon size={18}/>
                 </button>
               )}
               <h1 className="text-2xl md:text-3xl font-extrabold">Field Service Report</h1>
             </div>
             <div className="flex items-center gap-2">
-              <button className="px-3 py-2 rounded-xl border flex items-center gap-2" onClick={()=>setManageOpen(true)}>
+              <button
+                className="px-3 py-2 rounded-xl border flex items-center gap-2"
+                onClick={(event)=>{
+                  manageTriggerRef.current = event.currentTarget;
+                  setManageOpen(true);
+                }}
+              >
                 <Settings size={18}/> Trip Types
               </button>
-              <button className="px-3 py-2 rounded-xl bg-blue-600 text-white flex items-center gap-2" onClick={()=>setSetupOpen(true)}>
+              <button
+                className="px-3 py-2 rounded-xl bg-blue-600 text-white flex items-center gap-2"
+                onClick={(event)=>{
+                  setupTriggerRef.current = event.currentTarget;
+                  setSetupOpen(true);
+                }}
+              >
                 <Plus size={18}/> New Report
               </button>
             </div>
@@ -264,7 +325,13 @@ export default function App() {
               <div className="w-full max-w-2xl rounded-3xl border shadow-sm p-8 bg-white text-center">
                 <p className="text-gray-500">Start a report or pick one on the left</p>
                 <h2 className="text-2xl font-bold mt-1">Create a new Report</h2>
-                <button className="mt-6 w-full px-6 py-4 rounded-2xl bg-blue-600 text-white font-semibold text-lg flex items-center justify-center gap-2" onClick={()=>setSetupOpen(true)}>
+                <button
+                  className="mt-6 w-full px-6 py-4 rounded-2xl bg-blue-600 text-white font-semibold text-lg flex items-center justify-center gap-2"
+                  onClick={(event)=>{
+                    setupTriggerRef.current = event.currentTarget;
+                    setSetupOpen(true);
+                  }}
+                >
                   <Plus/> Create Report
                 </button>
               </div>
@@ -283,8 +350,26 @@ export default function App() {
                   </div>
                   <div>
                     <div className="text-sm text-gray-500 flex items-center gap-2">Trip Type
-                      <button className="ml-2 px-2 py-1 rounded-lg border text-xs flex items-center gap-1" onClick={()=>setDocsOpen(true)} title="Edit documents for this job"><Cog size={14}/> Docs</button>
-                      <button className="ml-2 px-2 py-1 rounded-lg border text-xs flex items-center gap-1" onClick={()=>setManualsOpen(true)} title="Owner's Manuals"><BookOpen size={14}/> Manuals</button>
+                      <button
+                        className="ml-2 px-2 py-1 rounded-lg border text-xs flex items-center gap-1"
+                        onClick={(event)=>{
+                          docsTriggerRef.current = event.currentTarget;
+                          setDocsOpen(true);
+                        }}
+                        title="Edit documents for this job"
+                      >
+                        <Cog size={14}/> Docs
+                      </button>
+                      <button
+                        className="ml-2 px-2 py-1 rounded-lg border text-xs flex items-center gap-1"
+                        onClick={(event)=>{
+                          manualsTriggerRef.current = event.currentTarget;
+                          setManualsOpen(true);
+                        }}
+                        title="Owner's Manuals"
+                      >
+                        <BookOpen size={14}/> Manuals
+                      </button>
                     </div>
                     <div className="font-semibold">{selected.tripType}</div>
                   </div>
@@ -303,14 +388,29 @@ export default function App() {
                     <button className="px-3 py-2 rounded-xl border flex items-center gap-2 disabled:opacity-40" disabled={!hasPhotos} onClick={()=>exportFieldPictures(selected)}>
                       <FileDown size={18}/> Export Field Pictures
                     </button>
-                    <button className="px-3 py-2 rounded-xl border text-red-600 flex items-center gap-2" onClick={()=>setDeleteTarget({ id: selected.id, jobNo: selected.jobNo })}>
+                    <button
+                      className="px-3 py-2 rounded-xl border text-red-600 flex items-center gap-2"
+                      onClick={(event)=>{
+                        deleteTriggerRef.current = event.currentTarget;
+                        setDeleteTarget({ id: selected.id, jobNo: selected.jobNo });
+                      }}
+                    >
                       <Trash size={18}/> Delete
                     </button>
+                  </div>
+                  <div className="md:col-span-5 col-span-1 mt-3">
+                    <StorageMeter bytes={reportsSizeBytes} />
                   </div>
                 </div>
               </div>
 
               <SerialTagCard report={selected} onChange={(patch)=>updateReport(patch)} />
+
+              {isFsrTabActive && !selected.serialTagImageUrl && !selected.serialTagMissing && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-700">
+                  Reminder: add a serial tag photo or check <b>None available</b> before logging issues.
+                </div>
+              )}
 
               {/* Document Tabs */}
               <DocumentTabs documents={selected.documents||[]} activeId={activeDocId} onSelect={setActiveDocId} />
@@ -351,13 +451,21 @@ export default function App() {
                   <p className="text-gray-500 mt-2">This will be a form with questions soon. Use the Docs button near Trip Type to add/remove documents and mark completed.</p>
                 </div>
               )}
+
+              <StorageMeter bytes={reportsSizeBytes} className="bg-white/70" />
             </div>
           )}
         </main>
       </div>
 
       {/* Trip Types Manager */}
-      <ManageTypes open={manageOpen} onClose={()=>setManageOpen(false)} types={types} setTypes={setTypes} />
+      <ManageTypes
+        open={manageOpen}
+        onClose={()=>setManageOpen(false)}
+        types={types}
+        setTypes={setTypes}
+        returnFocusRef={manageTriggerRef}
+      />
 
       {/* Docs Settings Modal */}
       {selected && (
@@ -366,12 +474,18 @@ export default function App() {
           onClose={()=>setDocsOpen(false)}
           documents={selected.documents||[]}
           onChange={(next)=>updateDocs(next)}
+          returnFocusRef={docsTriggerRef}
         />
       )}
 
       {/* Manuals Modal */}
       {selected && (
-        <ManualsModal open={manualsOpen} onClose={()=>setManualsOpen(false)} model={selected.model} />
+        <ManualsModal
+          open={manualsOpen}
+          onClose={()=>setManualsOpen(false)}
+          model={selected.model}
+          returnFocusRef={manualsTriggerRef}
+        />
       )}
 
       {/* Delete confirmation */}
@@ -382,12 +496,33 @@ export default function App() {
         onCancel={()=>setDeleteTarget(null)}
         onConfirm={()=>{ if(deleteTarget){ removeReport(deleteTarget.id); setDeleteTarget(null);} }}
         confirmText="Delete"
+        returnFocusRef={deleteTriggerRef}
+      />
+
+      <ConfirmDialog
+        open={!!duplicatePrompt}
+        title="Open existing report?"
+        message={duplicatePrompt ? `${duplicatePrompt.jobNo} is already saved. Open it instead or create another report with the same Job #.` : ""}
+        onCancel={() => {
+          if (duplicatePrompt) {
+            setSelectedId(duplicatePrompt.id);
+            setSetupOpen(false);
+          }
+          setDuplicatePrompt(null);
+        }}
+        cancelText="Open existing"
+        confirmText="Use anyway"
+        onConfirm={() => {
+          setDuplicatePrompt(null);
+          createReport();
+        }}
+        returnFocusRef={setupTriggerRef}
       />
 
       {/* Setup modal for creating report */}
       <ReportSetup
         open={setupOpen}
-        onClose={()=>setSetupOpen(false)}
+        onClose={()=>{ setSetupOpen(false); setDuplicatePrompt(null); }}
         types={types}
         jobNo={jobNo} setJobNo={(v)=>setJobNo(clampJob(v))}
         tripType={tripType} setTripType={setTripType}
@@ -395,22 +530,48 @@ export default function App() {
         startAt={startAt} setStartAt={setStartAt}
         endAt={endAt} setEndAt={setEndAt}
         canCreate={canCreate}
-        onCreate={createReport}
+        onCreate={handleCreateReport}
+        returnFocusRef={setupTriggerRef}
       />
     </div>
   );
 }
 
-function ReportSetup({ open, onClose, types, jobNo, setJobNo, tripType, setTripType, model, setModel, startAt, setStartAt, endAt, setEndAt, canCreate, onCreate }) {
+function ReportSetup({
+  open,
+  onClose,
+  types,
+  jobNo,
+  setJobNo,
+  tripType,
+  setTripType,
+  model,
+  setModel,
+  startAt,
+  setStartAt,
+  endAt,
+  setEndAt,
+  canCreate,
+  onCreate,
+  returnFocusRef,
+}) {
   if (!open) return null;
   const endBeforeStart = new Date(endAt) < new Date(startAt);
   const jobValid = isValidJob(jobNo);
+  const containerRef = useRef(null);
+  useModalA11y(open, containerRef, { onClose, returnFocusRef });
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+      <div ref={containerRef} tabIndex={-1} className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold">New Report</h3>
-          <button className="p-2 rounded-full hover:bg-gray-100" onClick={onClose}><X size={18}/></button>
+          <button
+            className="p-2 rounded-full hover:bg-gray-100"
+            onClick={onClose}
+            aria-label="Close new report dialog"
+          >
+            <X size={18}/>
+          </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
