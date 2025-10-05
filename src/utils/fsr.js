@@ -75,6 +75,12 @@ export function formatRange(startAt, endAt) {
   }
 }
 
+const escapeHtml = (value = "") =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
 export function fileToDataURL(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -125,7 +131,7 @@ export function makeEmptyServiceSummaryData() {
   };
 }
 
-export function exportReport(report) {
+export function buildReportHtml(report) {
   const title = `Field Service Report`;
   const subtitle = `${report.jobNo} • ${report.tripType}${
     report.model ? ` • Model ${report.model}` : ``
@@ -139,7 +145,55 @@ export function exportReport(report) {
     phone: "414-426-2643",
   };
 
-  const styles = `
+  const docsHTML =
+    (report.documents || [])
+      .map((d) => `<div>${d.done ? "☑" : "☐"} ${escapeHtml(d.name || "Untitled document")}</div>`)
+      .join("") || `<div>☐ Field Service Report</div>`;
+
+  const serialHTML = report.serialTagImageUrl
+    ? `<div class="serial"><div><b>Serial Tag</b><div class="note">Attached</div></div><img src="${report.serialTagImageUrl}" alt="Serial tag"/></div>`
+    : `<div class="serial"><div><b>Serial Tag</b><div class="note">${
+        report.serialTagMissing ? "Not available (checked)" : "Not provided"
+      }</div></div></div>`;
+
+  const fsrDoc = (report.documents || []).find((d) => (d.name || "").toLowerCase() === "field service report");
+  const fsrIssues = fsrDoc?.data?.issues || [];
+
+  const issuesHTML = fsrIssues.length
+    ? fsrIssues
+        .map(
+          (iss, i) => `
+      <div class="issue">
+        <h3>Issue #${i + 1} — ${escapeHtml(fmtDateTime(iss.createdAt))}</h3>
+        ${iss.imageUrl ? `<img src="${iss.imageUrl}" alt="Issue ${i + 1} image"/>` : ""}
+        <div class="note">${escapeHtml(iss.note || "(No description)")}</div>
+      </div>
+    `,
+        )
+        .join("")
+    : `<p style="color:#666;">No issues recorded.</p>`;
+
+  const photos = report.photos || [];
+  const photosHTML = photos.length
+    ? photos
+        .map(
+          (p, i) => `
+      <div class="issue">
+        ${p.imageUrl ? `<img src="${p.imageUrl}" alt="Photo ${i + 1}"/>` : ""}
+        ${p.caption ? `<div class="note">${escapeHtml(p.caption)}</div>` : ""}
+      </div>
+    `,
+        )
+        .join("")
+    : `<p style="color:#666;">No field pictures.</p>`;
+
+  const generatedAt = new Date().toLocaleString();
+
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${escapeHtml(title)}</title>
     <style>
       * { box-sizing: border-box; }
       body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
@@ -157,104 +211,51 @@ export function exportReport(report) {
       .note { margin-top: 8px; white-space: pre-wrap; font-size: 13px; }
       .footer { text-align:center; color:#888; font-size: 11px; margin-top: 24px; }
       @media print { body { background: white; } }
-    </style>`;
-
-  const docsHTML =
-    (report.documents || [])
-      .map(
-        (d) => `
-    <div> ${d.done ? "☑" : "☐"} ${d.name} </div>
-  `,
-      )
-      .join("") || `<div>☐ Field Service Report</div>`;
-
-  const serialHTML = report.serialTagImageUrl
-    ? `<div class="serial"><div><b>Serial Tag</b><div class="note">Attached</div></div><img src="${report.serialTagImageUrl}"/></div>`
-    : `<div class="serial"><div><b>Serial Tag</b><div class="note">${
-        report.serialTagMissing ? "Not available (checked)" : "Not provided"
-      }</div></div></div>`;
-
-  const fsrDoc = (report.documents || []).find((d) => (d.name || "").toLowerCase() === "field service report");
-  const fsrIssues = fsrDoc?.data?.issues || [];
-
-  const issuesHTML =
-    fsrIssues.length
-      ? fsrIssues
-          .map(
-            (iss, i) => `
-      <div class="issue">
-        <h3>Issue #${i + 1} — ${fmtDateTime(iss.createdAt)}</h3>
-        ${iss.imageUrl ? `<img src="${iss.imageUrl}" alt="Issue ${i + 1} image"/>` : ""}
-        <div class="note">${(iss.note || "(No description)")
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")}</div>
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="hdr">
+        <div>
+          <div class="title">${escapeHtml(title)}</div>
+          <div class="subtitle">${escapeHtml(subtitle)}</div>
+        </div>
+        <div class="tech">
+          ${escapeHtml(company.name)}<br/>
+          ${escapeHtml(`${company.techName} — ${company.techTitle}`)}<br/>
+          Email: ${escapeHtml(company.email)}<br/>
+          Phone: ${escapeHtml(company.phone)}
+        </div>
       </div>
-    `,
-          )
-          .join("")
-      : `<p style="color:#666;">No issues recorded.</p>`;
 
-  const photos = report.photos || [];
-  const photosHTML =
-    photos.length
-      ? photos
-          .map(
-            (p, i) => `
-      <div class="issue">
-        ${p.imageUrl ? `<img src="${p.imageUrl}" alt="Photo ${i + 1}"/>` : ""}
-        ${
-          p.caption
-            ? `<div class="note">${p.caption
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")}</div>`
-            : ""
-        }
+      ${serialHTML}
+
+      <div class="section">
+        <b>Documents to Fill</b>
+        <div style="margin-top:6px;">${docsHTML}</div>
       </div>
-    `,
-          )
-          .join("")
-      : `<p style="color:#666;">No field pictures.</p>`;
 
-  const body = `
-  <div class="page">
-    <div class="hdr">
-      <div>
-        <div class="title">${title}</div>
-        <div class="subtitle">${subtitle}</div>
+      <div class="section">
+        <b>Field Service Report – Issues</b>
+        ${issuesHTML}
       </div>
-      <div class="tech">
-        ${company.name}<br/>
-        ${company.techName} — ${company.techTitle}<br/>
-        Email: ${company.email}<br/>
-        Phone: ${company.phone}
+
+      <div class="section">
+        <b>Field Pictures</b>
+        ${photosHTML}
       </div>
+
+      <div class="footer">Generated by FSR Demo • ${escapeHtml(generatedAt)}</div>
     </div>
+  </body>
+</html>`;
+}
 
-    ${serialHTML}
-
-    <div class="section">
-      <b>Documents to Fill</b>
-      <div style="margin-top:6px;">${docsHTML}</div>
-    </div>
-
-    <div class="section">
-      <b>Field Service Report – Issues</b>
-      ${issuesHTML}
-    </div>
-
-    <div class="section">
-      <b>Field Pictures</b>
-      ${photosHTML}
-    </div>
-
-    <div class="footer">Generated by FSR Demo • ${new Date().toLocaleString()}</div>
-  </div>`;
-
+export function exportReport(report) {
+  const html = buildReportHtml(report);
   const win = window.open("", "_blank");
   if (!win) return;
-  win.document.write(`<!doctype html><html><head><meta charset="utf-8"/>${styles}</head><body>${body}</body></html>`);
+  win.document.write(html);
   win.document.close();
   win.focus();
 }

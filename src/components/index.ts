@@ -6,3 +6,4 @@ export { default as DocumentTabs } from "./DocumentTabs.jsx";
 export { default as ManageTypes } from "./ManageTypes.jsx";
 export { default as ManageDocsModal } from "./ManageDocsModal.jsx";
 export { default as ConfirmDialog } from "./ConfirmDialog.jsx";
+export { default as ManualsModal } from "./ManualsModal.jsx";
