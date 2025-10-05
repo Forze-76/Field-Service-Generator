@@ -11,6 +11,7 @@ import {
   loadReports,
   loadTypes,
   makeDocs,
+  mergeFsrData,
   MODELS,
   saveReports,
   toISOInput,
@@ -19,6 +20,7 @@ import {
 import {
   ConfirmDialog,
   DocumentTabs,
+  FsrDetailsCard,
   IssueCard,
   ManageDocsModal,
   ManageTypes,
@@ -118,9 +120,18 @@ export default function App() {
   function updateFsrIssues(mutator) {
     updateDocs((docs)=> (docs||[]).map(d => {
       if ((d.name||"").toLowerCase() !== 'field service report') return d;
-      const prevIssues = d.data?.issues || [];
-      const nextIssues = mutator(prevIssues);
-      return { ...d, data: { ...(d.data||{}), issues: nextIssues } };
+      const current = mergeFsrData(d.data);
+      const nextIssues = mutator(current.issues);
+      return { ...d, data: { ...current, issues: nextIssues } };
+    }));
+  }
+
+  function updateFsrDetails(mutator) {
+    updateDocs((docs)=> (docs||[]).map(d => {
+      if ((d.name||"").toLowerCase() !== 'field service report') return d;
+      const current = mergeFsrData(d.data);
+      const nextDetails = typeof mutator === 'function' ? mutator(current.details) : mutator;
+      return { ...d, data: { ...current, details: nextDetails } };
     }));
   }
 
@@ -143,7 +154,9 @@ export default function App() {
 
   const readyForIssues = selected ? (!!selected.serialTagImageUrl || !!selected.serialTagMissing) : false;
   const fsrDoc = selected?.documents?.find(d => (d.name||"").toLowerCase() === 'field service report');
-  const fsrIssues = fsrDoc?.data?.issues || [];
+  const fsrData = useMemo(() => mergeFsrData(fsrDoc?.data), [fsrDoc]);
+  const fsrDetails = fsrData.details;
+  const fsrIssues = fsrData.issues;
 
   const activeDoc = selected?.documents?.find(d=>d.id===activeDocId) || null;
   const hasPhotos = (selected?.photos||[]).length>0;
@@ -279,42 +292,45 @@ export default function App() {
 
               {/* Active Document Body */}
               {activeDoc && (activeDoc.name||"").toLowerCase()==='field service report' && (
-                <div className="rounded-3xl border shadow-sm p-6 bg-white">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold">Field Service Report – Issues</h3>
-                    <div className="flex items-center gap-2">
-                      <button className="px-2 py-1 rounded-xl border" onClick={collapseAll}>Collapse all</button>
-                      <button className="px-2 py-1 rounded-xl border" onClick={expandAll}>Expand all</button>
-                      <button className="px-3 py-2 rounded-xl bg-blue-600 text-white flex items-center gap-2 disabled:opacity-40" disabled={!readyForIssues} onClick={()=>updateFsrIssues(iss => [...iss, { id: uid(), note: "", imageUrl: "", createdAt: new Date().toISOString(), collapsed:false }])}>
-                        <Plus size={18}/> Add issue
-                      </button>
+                <div className="space-y-6">
+                  <FsrDetailsCard details={fsrDetails} onChange={(next)=>updateFsrDetails(next)} />
+                  <div className="rounded-3xl border shadow-sm p-6 bg-white">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-bold">Field Service Report – Issues</h3>
+                      <div className="flex items-center gap-2">
+                        <button className="px-2 py-1 rounded-xl border" onClick={collapseAll}>Collapse all</button>
+                        <button className="px-2 py-1 rounded-xl border" onClick={expandAll}>Expand all</button>
+                        <button className="px-3 py-2 rounded-xl bg-blue-600 text-white flex items-center gap-2 disabled:opacity-40" disabled={!readyForIssues} onClick={()=>updateFsrIssues(iss => [...iss, { id: uid(), note: "", imageUrl: "", createdAt: new Date().toISOString(), collapsed:false }])}>
+                          <Plus size={18}/> Add issue
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  {!readyForIssues && (
-                    <div className="mt-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                      Please attach a photo of the Serial Number Tag or check <b>None available</b> before adding issues.
-                    </div>
-                  )}
+                    {!readyForIssues && (
+                      <div className="mt-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                        Please attach a photo of the Serial Number Tag or check <b>None available</b> before adding issues.
+                      </div>
+                    )}
 
-                  {(fsrIssues||[]).length === 0 ? (
-                    <p className="text-gray-500 mt-4">No issues yet.</p>
-                  ) : (
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {fsrIssues.map((iss, idx) => (
-                        <IssueCard key={iss.id} issue={iss} idx={idx} onChange={(next)=>{
-                          updateFsrIssues(prev => { const arr=[...prev]; arr[idx]=next; return arr; });
-                        }} onRemove={()=>{
-                          updateFsrIssues(prev => prev.filter(x=>x.id!==iss.id));
-                        }} onMove={(dir)=>{
-                          updateFsrIssues(prev => { const arr=[...prev]; const j = idx + (dir==='up'?-1:1); if (j<0||j>=arr.length) return arr; const t=arr[j]; arr[j]=arr[idx]; arr[idx]=t; return arr; });
-                        }} />
-                      ))}
-                    </div>
-                  )}
+                    {(fsrIssues||[]).length === 0 ? (
+                      <p className="text-gray-500 mt-4">No issues yet.</p>
+                    ) : (
+                      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {fsrIssues.map((iss, idx) => (
+                          <IssueCard key={iss.id} issue={iss} idx={idx} onChange={(next)=>{
+                            updateFsrIssues(prev => { const arr=[...prev]; arr[idx]=next; return arr; });
+                          }} onRemove={()=>{
+                            updateFsrIssues(prev => prev.filter(x=>x.id!==iss.id));
+                          }} onMove={(dir)=>{
+                            updateFsrIssues(prev => { const arr=[...prev]; const j = idx + (dir==='up'?-1:1); if (j<0||j>=arr.length) return arr; const t=arr[j]; arr[j]=arr[idx]; arr[idx]=t; return arr; });
+                          }} />
+                        ))}
+                      </div>
+                    )}
 
-                  {/* Photo Vault */}
-                  <div className="mt-6">
-                    <PhotoVault photos={selected.photos||[]} onChange={(next)=>updatePhotos(next)} />
+                    {/* Photo Vault */}
+                    <div className="mt-6">
+                      <PhotoVault photos={selected.photos||[]} onChange={(next)=>updatePhotos(next)} />
+                    </div>
                   </div>
                 </div>
               )}
