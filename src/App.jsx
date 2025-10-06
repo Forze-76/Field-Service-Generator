@@ -120,15 +120,28 @@ function Workspace({
     }
   }, [reports.length]);
 
-  // When selecting a report, default the active tab to the first document
-  useEffect(()=>{
-    if (selected) {
-      const first = selected.documents?.[0]?.id || null;
-      setActiveDocId(prev => selected.documents?.some(d=>d.id===prev) ? prev : first);
-    } else {
+  // Keep the active document stable and only reset when the previous tab disappears
+  const docIdsSignature = (selected?.documents || []).map((doc) => doc.id).join("|");
+  useEffect(() => {
+    if (!selected) {
       setActiveDocId(null);
+      return;
     }
-  }, [selectedId]);
+
+    const docs = selected.documents || [];
+    if (docs.length === 0) {
+      setActiveDocId(null);
+      return;
+    }
+
+    const firstDocId = docs[0]?.id || null;
+    setActiveDocId((prev) => {
+      if (prev && docs.some((doc) => doc.id === prev)) {
+        return prev;
+      }
+      return firstDocId;
+    });
+  }, [selected?.id, docIdsSignature]);
 
   const canCreate = isValidJob(jobNo) && !!tripType && !!model && new Date(endAt) >= new Date(startAt);
 

@@ -128,6 +128,25 @@ describe("entry helpers", () => {
     expect(data.details.partsNeeded.map((item) => item.text)).toContain("123 — Photo eye (Qty 2)");
     expect(data.details.partsNeeded.map((item) => item.text)).toContain("456 — Controller (Qty 1)");
   });
+
+  it("assigns stable ids to order parts entries and rows when missing", () => {
+    const normalized = ensureFsrDocData({
+      entries: [
+        {
+          type: "orderParts",
+          parts: [{ partNo: "789", desc: "Valve", qty: "1" }],
+        },
+      ],
+    });
+
+    const entry = normalized.entries[0];
+    expect(entry.id).toBeTruthy();
+    expect(entry.parts[0].id).toBeTruthy();
+
+    const roundTrip = ensureFsrDocData(normalized);
+    expect(roundTrip.entries[0].id).toBe(entry.id);
+    expect(roundTrip.entries[0].parts[0].id).toBe(entry.parts[0].id);
+  });
 });
 
 describe("mergePartsNeeded", () => {

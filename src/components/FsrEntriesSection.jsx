@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -70,6 +70,8 @@ const Label = ({ children }) => (
   <div className="text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">{children}</div>
 );
 
+const createEmptyPartRow = () => ({ id: uid(), partNo: "", desc: "", qty: "" });
+
 const createDraft = (type) => {
   switch (type) {
     case "issue":
@@ -80,7 +82,7 @@ const createDraft = (type) => {
       return {
         type,
         note: "",
-        parts: [{ id: uid(), partNo: "", desc: "", qty: "" }],
+        parts: [createEmptyPartRow()],
         collapsed: true,
       };
     case "docRequest":
@@ -134,6 +136,11 @@ const getEntrySummary = (entry) => {
 
 function EntryForm({ value, onChange }) {
   const meta = FSR_ENTRY_TYPE_META[value.type] || { label: "Entry" };
+  const fallbackPartRowRef = useRef(createEmptyPartRow());
+
+  useEffect(() => {
+    fallbackPartRowRef.current = createEmptyPartRow();
+  }, [value.id]);
 
   if (value.type === "issue") {
     return (
@@ -182,7 +189,7 @@ function EntryForm({ value, onChange }) {
   }
 
   if (value.type === "orderParts") {
-    const parts = value.parts && value.parts.length ? value.parts : [{ id: uid(), partNo: "", desc: "", qty: "" }];
+    const parts = value.parts && value.parts.length ? value.parts : [fallbackPartRowRef.current];
     const updatePart = (index, patch) => {
       const next = parts.map((row, idx) => (idx === index ? { ...row, ...patch } : row));
       onChange({ ...value, parts: next });
@@ -192,7 +199,7 @@ function EntryForm({ value, onChange }) {
       onChange({ ...value, parts: next });
     };
     const addPart = () => {
-      onChange({ ...value, parts: [...parts, { id: uid(), partNo: "", desc: "", qty: "" }] });
+      onChange({ ...value, parts: [...parts, createEmptyPartRow()] });
     };
     return (
       <div className="space-y-4">
@@ -213,7 +220,7 @@ function EntryForm({ value, onChange }) {
             <div className="col-span-12 md:col-span-2">Qty</div>
           </div>
           {parts.map((row, index) => (
-            <div key={row.id || index} className="grid grid-cols-12 gap-2 px-3 py-2 border-t">
+            <div key={row.id} className="grid grid-cols-12 gap-2 px-3 py-2 border-t">
               <input
                 className="col-span-12 md:col-span-3 rounded-xl border px-3 py-2 text-sm"
                 value={row.partNo}
