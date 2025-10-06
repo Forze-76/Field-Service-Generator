@@ -48,6 +48,7 @@ function Workspace({
   onSwitchUser,
   justSignedIn,
   clearJustSignedIn,
+  onResetApp,
 }) {
   const [types, setTypes] = useState(() => loadTypes(storage));
   const [manageOpen, setManageOpen] = useState(false);
@@ -74,6 +75,7 @@ function Workspace({
   // Delete confirm state
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [duplicatePrompt, setDuplicatePrompt] = useState(null);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
 
   const [toast, setToast] = useState(null);
   const [banner, setBanner] = useState("");
@@ -83,6 +85,7 @@ function Workspace({
   const manualsTriggerRef = useRef(null);
   const setupTriggerRef = useRef(null);
   const deleteTriggerRef = useRef(null);
+  const resetTriggerRef = useRef(null);
 
   const storageScope = storage?.scopeId || "";
 
@@ -477,6 +480,8 @@ function Workspace({
                 onSignOut={onSignOut}
                 onSwitchUser={onSwitchUser}
                 onSync={handleSync}
+                onClearLocalData={() => setResetConfirmOpen(true)}
+                clearDataButtonRef={resetTriggerRef}
               />
             </div>
           </div>
@@ -660,6 +665,19 @@ function Workspace({
         />
       )}
 
+      <ConfirmDialog
+        open={resetConfirmOpen}
+        title="Reset app data?"
+        message="This will permanently remove all saved reports, photos, and user profiles from this device."
+        onCancel={() => setResetConfirmOpen(false)}
+        onConfirm={() => {
+          setResetConfirmOpen(false);
+          onResetApp?.();
+        }}
+        confirmText="Clear data"
+        returnFocusRef={resetTriggerRef}
+      />
+
       {/* Delete confirmation */}
       <ConfirmDialog
         open={!!deleteTarget}
@@ -710,7 +728,17 @@ function Workspace({
 }
 
 function AppShell() {
-  const { status, currentUser, scopedStorage, lock, signOut, switchUser, justSignedIn, clearJustSignedIn } = useAuth();
+  const {
+    status,
+    currentUser,
+    scopedStorage,
+    lock,
+    signOut,
+    switchUser,
+    justSignedIn,
+    clearJustSignedIn,
+    resetAppData,
+  } = useAuth();
 
   if (status === "loading") {
     return (
@@ -733,6 +761,7 @@ function AppShell() {
       onSwitchUser={switchUser}
       justSignedIn={justSignedIn}
       clearJustSignedIn={clearJustSignedIn}
+      onResetApp={resetAppData}
     />
   );
 }

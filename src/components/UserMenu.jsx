@@ -1,12 +1,21 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronDown, LogOut, RefreshCcw, Shield, Users } from "lucide-react";
+import { ChevronDown, LogOut, RefreshCcw, Shield, Trash2, Users } from "lucide-react";
 
-function MenuItem({ icon: Icon, label, onClick, disabled }) {
+function MenuItem({ icon: Icon, label, onClick, disabled, variant = "default", buttonRef }) {
+  const classes = (() => {
+    if (variant === "destructive") {
+      return disabled
+        ? "cursor-not-allowed text-red-300"
+        : "text-red-600 hover:bg-red-50";
+    }
+    return disabled
+      ? "cursor-not-allowed text-slate-400"
+      : "text-slate-700 hover:bg-slate-100";
+  })();
   return (
     <button
-      className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${
-        disabled ? "cursor-not-allowed text-slate-400" : "hover:bg-slate-100 text-slate-700"
-      }`}
+      ref={buttonRef}
+      className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${classes}`}
       onClick={onClick}
       type="button"
       disabled={disabled}
@@ -17,7 +26,15 @@ function MenuItem({ icon: Icon, label, onClick, disabled }) {
   );
 }
 
-export default function UserMenu({ user, onLock, onSignOut, onSwitchUser, onSync }) {
+export default function UserMenu({
+  user,
+  onLock,
+  onSignOut,
+  onSwitchUser,
+  onSync,
+  onClearLocalData,
+  clearDataButtonRef,
+}) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
 
@@ -87,6 +104,19 @@ export default function UserMenu({ user, onLock, onSignOut, onSwitchUser, onSync
               setOpen(false);
             }}
           />
+          <div className="mt-3 border-t border-slate-200 pt-3">
+            <div className="mb-2 text-xs uppercase tracking-wide text-slate-400">Developer</div>
+            <MenuItem
+              icon={Trash2}
+              label="Clear local data"
+              variant="destructive"
+              onClick={() => {
+                onClearLocalData?.();
+                setOpen(false);
+              }}
+              buttonRef={clearDataButtonRef}
+            />
+          </div>
         </div>
       )}
     </div>

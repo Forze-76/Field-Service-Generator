@@ -14,6 +14,7 @@ import {
   loadUsers,
   migrateLegacyData,
   removeCurrentUserId,
+  resetAuthThrottle,
   scopeStorageForUser,
   setCurrentUserId,
   signInWithPin,
@@ -56,6 +57,18 @@ export function AuthProvider({ children }) {
   const [initialEmail, setInitialEmail] = useState("");
   const [justSignedIn, setJustSignedIn] = useState(false);
   const clearJustSignedIn = useCallback(() => setJustSignedIn(false), []);
+
+  const resetAppData = useCallback(() => {
+    baseStorage.clear();
+    resetAuthThrottle();
+    setUsers([]);
+    setCurrentUser(null);
+    setLockedUser(null);
+    setRememberSelection(true);
+    setInitialEmail("");
+    setStatus("signedOut");
+    setJustSignedIn(false);
+  }, [baseStorage]);
 
   useEffect(() => {
     let mounted = true;
@@ -183,6 +196,7 @@ export function AuthProvider({ children }) {
       switchUser,
       lock,
       clearJustSignedIn,
+      resetAppData,
     }),
     [
       status,
@@ -194,6 +208,7 @@ export function AuthProvider({ children }) {
       lockedUser,
       justSignedIn,
       clearJustSignedIn,
+      resetAppData,
     ],
   );
 
