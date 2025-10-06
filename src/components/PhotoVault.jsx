@@ -1,19 +1,20 @@
-import React, { useRef } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import { Images, Trash } from "lucide-react";
 import { fileToDataURL, uid } from "../utils/fsr";
 
 function PhotoVault({ photos, onChange }) {
   const inputRef = useRef(null);
+  const safePhotos = useMemo(() => (Array.isArray(photos) ? photos : []), [photos]);
 
-  const addFiles = async (files) => {
+  const addFiles = useCallback(async (files) => {
     const arr = [];
     // TODO: consider compressing images before storing to reduce localStorage usage.
     for (const f of files) {
       const url = await fileToDataURL(f);
       arr.push({ id: uid(), imageUrl: url, caption: "", createdAt: new Date().toISOString() });
     }
-    onChange([...(photos || []), ...arr]);
-  };
+    onChange([...safePhotos, ...arr]);
+  }, [safePhotos, onChange]);
 
   return (
     <div className="rounded-3xl border shadow-sm p-6 bg-white">
@@ -40,13 +41,13 @@ function PhotoVault({ photos, onChange }) {
           </button>
         </div>
       </div>
-      {(photos || []).length === 0 ? (
+      {safePhotos.length === 0 ? (
         <p className="text-gray-500 mt-3">
           No photos yet. Use <b>Add Photo(s)</b> to upload field pictures.
         </p>
       ) : (
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {photos.map((p, idx) => (
+          {safePhotos.map((p, idx) => (
             <div key={p.id} className="rounded-2xl border overflow-hidden bg-white">
               {p.imageUrl ? (
                 <img src={p.imageUrl} alt={`Field photo ${idx + 1}`} className="h-64 w-full object-cover" />
@@ -58,11 +59,11 @@ function PhotoVault({ photos, onChange }) {
                   className="flex-1 rounded-xl border px-3 py-2"
                   placeholder="Caption (optional)"
                   value={p.caption || ""}
-                  onChange={(e) => onChange(photos.map((x) => (x.id === p.id ? { ...x, caption: e.target.value } : x)))}
+                  onChange={(e) => onChange(safePhotos.map((x) => (x.id === p.id ? { ...x, caption: e.target.value } : x)))}
                 />
                 <button
                   className="p-2 rounded-xl border"
-                  onClick={() => onChange(photos.filter((x) => x.id !== p.id))}
+                  onClick={() => onChange(safePhotos.filter((x) => x.id !== p.id))}
                   aria-label={`Remove photo ${idx + 1}`}
                 >
                   <Trash size={16} />
@@ -76,4 +77,4 @@ function PhotoVault({ photos, onChange }) {
   );
 }
 
-export default PhotoVault;
+export default React.memo(PhotoVault);

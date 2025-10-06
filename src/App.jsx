@@ -23,6 +23,7 @@ import {
   updateEntryInFsrData,
 } from "./utils/fsr";
 import {
+  BuildBadge,
   ConfirmDialog,
   DocumentTabs,
   FsrEntriesSection,
@@ -38,6 +39,7 @@ import {
 import useModalA11y from "./hooks/useModalA11y";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import AuthGate from "./auth/AuthGate";
+import { buildLabel } from "./utils/buildInfo";
 
 // ===================== Main App =====================
 function Workspace({
@@ -129,16 +131,19 @@ function Workspace({
 
   useEffect(() => {
     if (!selected) {
-      setActiveDocId(null);
+      if (activeDocId !== null) {
+        setActiveDocId(null);
+      }
       return;
     }
-    setActiveDocId((prev) => {
-      if (prev && docList.some((doc) => doc.id === prev)) {
-        return prev;
-      }
-      return docList[0]?.id || null;
-    });
-  }, [selected, docList, docIdsKey]);
+    if (activeDocId && docList.some((doc) => doc.id === activeDocId)) {
+      return;
+    }
+    const fallback = docList[0]?.id || null;
+    if (fallback !== activeDocId) {
+      setActiveDocId(fallback);
+    }
+  }, [selected?.id, docIdsKey, docList, activeDocId]);
 
   const canCreate = isValidJob(jobNo) && !!tripType && !!model && new Date(endAt) >= new Date(startAt);
 
@@ -320,7 +325,9 @@ function Workspace({
 
   const handleAddEntry = useCallback(
     (entry) => {
-      updateFsrData((data) => addEntryWithEffects(data, entry));
+      if (!entry) return;
+      const ensured = entry.id ? entry : { ...entry, id: uid() };
+      updateFsrData((data) => addEntryWithEffects(data, ensured));
     },
     [updateFsrData],
   );
@@ -436,21 +443,27 @@ function Workspace({
 
         {/* Main */}
         <main className="flex-1 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              {selected && (
-                <button
-                  className="p-2 rounded-xl border hover:bg-gray-50"
-                  onClick={()=>setSelectedId(null)}
-                  title="Home"
-                  aria-label="Back to report list"
-                >
-                  <HomeIcon size={18}/>
-                </button>
-              )}
-              <h1 className="text-2xl md:text-3xl font-extrabold">Field Service Report</h1>
+          <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+            <div className="flex flex-col gap-2 min-w-[220px]">
+              <div className="flex items-center gap-2">
+                {selected && (
+                  <button
+                    className="p-2 rounded-xl border hover:bg-gray-50"
+                    onClick={()=>setSelectedId(null)}
+                    title="Home"
+                    aria-label="Back to report list"
+                  >
+                    <HomeIcon size={18}/>
+                  </button>
+                )}
+                <h1 className="text-2xl md:text-3xl font-extrabold">Field Service Report</h1>
+              </div>
+              <div className="text-xs font-mono text-gray-600 bg-gray-50/80 border border-gray-200 rounded-lg px-2 py-1 w-fit">
+                {buildLabel}
+              </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <BuildBadge />
               <div className="flex items-center gap-2">
                 <button
                   className="px-3 py-2 rounded-xl border flex items-center gap-2"

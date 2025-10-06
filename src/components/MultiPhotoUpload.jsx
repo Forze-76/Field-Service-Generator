@@ -110,4 +110,4 @@ function MultiPhotoUpload({ photos = [], onChange, disabled = false }) {
   );
 }
 
-export default MultiPhotoUpload;
+export default React.memo(MultiPhotoUpload);

@@ -76,28 +76,29 @@ const mkId = () =>
     : uid());
 
 const createDraft = (type) => {
+  const id = mkId();
   switch (type) {
     case "issue":
-      return { type, note: "", photos: [], collapsed: true };
+      return { id, type, note: "", photos: [], collapsed: true };
     case "correction":
-      return { type, note: "", photos: [], collapsed: true };
+      return { id, type, note: "", photos: [], collapsed: true };
     case "orderParts":
       return {
-        type,
+        id,
         note: "",
         parts: [{ id: mkId(), partNo: "", desc: "", qty: "" }],
         collapsed: true,
       };
     case "docRequest":
-      return { type, docKind: "installation", docNotes: "", collapsed: true };
+      return { id, type, docKind: "installation", docNotes: "", collapsed: true };
     case "followUp":
-      return { type, followUp: { title: "", details: "" }, collapsed: true };
+      return { id, type, followUp: { title: "", details: "" }, collapsed: true };
     case "internal":
-      return { type, note: "", collapsed: true };
+      return { id, type, note: "", collapsed: true };
     case "commentary":
-      return { type, note: "", collapsed: true };
+      return { id, type, note: "", collapsed: true };
     default:
-      return { type, collapsed: true };
+      return { id, type, collapsed: true };
   }
 };
 
@@ -189,12 +190,12 @@ function EntryForm({ value, onChange }) {
   if (value.type === "orderParts") {
     const parts =
       value.parts && value.parts.length ? value.parts : [{ id: mkId(), partNo: "", desc: "", qty: "" }];
-    const updatePart = (index, patch) => {
-      const next = parts.map((row, idx) => (idx === index ? { ...row, ...patch } : row));
+    const updatePart = (id, patch) => {
+      const next = parts.map((row) => (row.id === id ? { ...row, ...patch } : row));
       onChange({ ...value, parts: next });
     };
-    const removePart = (index) => {
-      const next = parts.filter((_, idx) => idx !== index);
+    const removePart = (id) => {
+      const next = parts.filter((row) => row.id !== id);
       onChange({ ...value, parts: next });
     };
     const addPart = () => {
@@ -218,31 +219,31 @@ function EntryForm({ value, onChange }) {
             <div className="col-span-12 md:col-span-7">Description</div>
             <div className="col-span-12 md:col-span-2">Qty</div>
           </div>
-          {parts.map((row, index) => (
+          {parts.map((row) => (
             <div key={row.id} className="grid grid-cols-12 gap-2 px-3 py-2 border-t">
               <input
                 className="col-span-12 md:col-span-3 rounded-xl border px-3 py-2 text-sm"
                 value={row.partNo}
-                onChange={(event) => updatePart(index, { partNo: event.target.value })}
+                onChange={(event) => updatePart(row.id, { partNo: event.target.value })}
                 placeholder="e.g., 12345"
               />
               <input
                 className="col-span-12 md:col-span-7 rounded-xl border px-3 py-2 text-sm"
                 value={row.desc}
-                onChange={(event) => updatePart(index, { desc: event.target.value })}
+                onChange={(event) => updatePart(row.id, { desc: event.target.value })}
                 placeholder="Description"
               />
               <div className="col-span-12 md:col-span-2 flex items-center gap-2">
                 <input
                   className="flex-1 rounded-xl border px-3 py-2 text-sm"
                   value={row.qty}
-                  onChange={(event) => updatePart(index, { qty: event.target.value })}
+                  onChange={(event) => updatePart(row.id, { qty: event.target.value })}
                   placeholder="Qty"
                 />
                 <button
                   type="button"
                   className="p-2 rounded-xl border text-gray-500 hover:text-red-600"
-                  onClick={() => removePart(index)}
+                  onClick={() => removePart(row.id)}
                   title="Remove row"
                   aria-label="Remove part row"
                 >
@@ -454,7 +455,13 @@ function FsrEntriesSection({
 
   const handleSubmitDraft = useCallback(() => {
     if (!draftType || !draft) return;
-    const base = { ...draft, type: draftType, collapsed: true, createdAt: new Date().toISOString() };
+    const base = {
+      ...draft,
+      id: draft.id || mkId(),
+      type: draftType,
+      collapsed: true,
+      createdAt: new Date().toISOString(),
+    };
     if (draftType === "orderParts") {
       const parts = (base.parts || []).filter((row) => row.partNo || row.desc || row.qty);
       onAddEntry({ ...base, parts });
