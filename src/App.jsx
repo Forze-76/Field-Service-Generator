@@ -1,5 +1,5 @@
 // FSR iPad – Web Demo Prototype (React) v0.8 (widgets removed)
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Plus, FileDown, X, Settings, Trash, Search, FolderPlus, Calendar, Home as HomeIcon, Cog, BookOpen } from "lucide-react";
 
 import {
@@ -58,11 +58,6 @@ function Workspace({
 
   // Setup form state
   const [setupOpen, setSetupOpen] = useState(false);
-  const [jobNo, setJobNo] = useState("J#");
-  const [tripType, setTripType] = useState("");
-  const [model, setModel] = useState("");
-  const [startAt, setStartAt] = useState(toISOInput(new Date()));
-  const [endAt, setEndAt] = useState(toISOInput(new Date(Date.now()+2*60*60*1000)));
 
   const [search, setSearch] = useState("");
 
@@ -140,49 +135,53 @@ function Workspace({
     });
   }, [selected, docList, docIdsKey]);
 
-  const canCreate = isValidJob(jobNo) && !!tripType && !!model && new Date(endAt) >= new Date(startAt);
+  const createReportFromDraft = useCallback(
+    (draft) => {
+      if (!draft) return;
+      const { jobNo, tripType, model, startAt, endAt } = draft;
+      const report = {
+        id: uid(),
+        jobNo: jobNo.trim(),
+        tripType,
+        model,
+        startAt: new Date(startAt).toISOString(),
+        endAt: new Date(endAt).toISOString(),
+        createdAt: new Date().toISOString(),
+        serialTagImageUrl: "",
+        serialTagMissing: false,
+        documents: makeDocs(tripType),
+        photos: [],
+        sharedSite: {
+          jobName: "",
+          serialNumberText: "",
+          siteStreetAddress: "",
+          siteMailingAddress: "",
+          siteCity: "",
+          siteState: "",
+          siteZip: "",
+        },
+      };
+      setReports((prev) => [report, ...prev]);
+      setSelectedId(report.id);
+      setSetupOpen(false);
+      setDuplicatePrompt(null);
+    },
+    [setReports, setSelectedId],
+  );
 
-  function createReport() {
-    if (!canCreate) return;
-    const r = {
-      id: uid(),
-      jobNo: jobNo.trim(),
-      tripType,
-      model,
-      startAt: new Date(startAt).toISOString(),
-      endAt: new Date(endAt).toISOString(),
-      createdAt: new Date().toISOString(),
-      serialTagImageUrl: "",
-      serialTagMissing: false,
-      documents: makeDocs(tripType),
-      photos: [],
-      sharedSite: {
-        jobName: "",
-        serialNumberText: "",
-        siteStreetAddress: "",
-        siteMailingAddress: "",
-        siteCity: "",
-        siteState: "",
-        siteZip: "",
+  const handleCreateReport = useCallback(
+    (draft) => {
+      if (!draft) return;
+      const normalized = draft.jobNo.trim().toLowerCase();
+      const existing = reports.find((report) => report.jobNo.trim().toLowerCase() === normalized);
+      if (existing) {
+        setDuplicatePrompt({ id: existing.id, jobNo: existing.jobNo, draft });
+        return;
       }
-    };
-    setReports(prev => [r, ...prev]);
-    setSelectedId(r.id);
-    setSetupOpen(false);
-    setModel("");
-    setDuplicatePrompt(null);
-  }
-
-  function handleCreateReport() {
-    if (!canCreate) return;
-    const normalized = jobNo.trim().toLowerCase();
-    const existing = reports.find((report) => report.jobNo.trim().toLowerCase() === normalized);
-    if (existing) {
-      setDuplicatePrompt({ id: existing.id, jobNo: existing.jobNo });
-      return;
-    }
-    createReport();
-  }
+      createReportFromDraft(draft);
+    },
+    [reports, createReportFromDraft],
+  );
 
   const updateReport = useCallback(
     (patch) => {
@@ -685,8 +684,11 @@ function Workspace({
         cancelText="Open existing"
         confirmText="Use anyway"
         onConfirm={() => {
-          setDuplicatePrompt(null);
-          createReport();
+          if (duplicatePrompt?.draft) {
+            createReportFromDraft(duplicatePrompt.draft);
+          } else {
+            setDuplicatePrompt(null);
+          }
         }}
         returnFocusRef={setupTriggerRef}
       />
@@ -696,12 +698,6 @@ function Workspace({
         open={setupOpen}
         onClose={()=>{ setSetupOpen(false); setDuplicatePrompt(null); }}
         types={types}
-        jobNo={jobNo} setJobNo={(v)=>setJobNo(clampJob(v))}
-        tripType={tripType} setTripType={setTripType}
-        model={model} setModel={setModel}
-        startAt={startAt} setStartAt={setStartAt}
-        endAt={endAt} setEndAt={setEndAt}
-        canCreate={canCreate}
         onCreate={handleCreateReport}
         returnFocusRef={setupTriggerRef}
       />
@@ -745,31 +741,71 @@ export default function App() {
   );
 }
 
-function ReportSetup({
-  open,
-  onClose,
-  types,
-  jobNo,
-  setJobNo,
-  tripType,
-  setTripType,
-  model,
-  setModel,
-  startAt,
-  setStartAt,
-  endAt,
-  setEndAt,
-  canCreate,
-  onCreate,
-  returnFocusRef,
-}) {
-  if (!open) return null;
-  const endBeforeStart = new Date(endAt) < new Date(startAt);
-  const jobValid = isValidJob(jobNo);
+export { ReportSetup };
+
+const REPORT_DURATION_MS = 2 * 60 * 60 * 1000;
+
+function makeInitialReportDraft() {
+  const start = new Date();
+  const end = new Date(start.getTime() + REPORT_DURATION_MS);
+  return {
+    jobNo: "J#",
+    tripType: "",
+    model: "",
+    startAt: toISOInput(start),
+    endAt: toISOInput(end),
+  };
+}
+
+function ReportSetup({ open, onClose, types, onCreate, returnFocusRef }) {
   const containerRef = useRef(null);
+  const [draft, setDraft] = useState(() => makeInitialReportDraft());
+  const initializedRef = useRef(false);
+  const idPrefix = useId();
+  const jobFieldId = `${idPrefix}-job`;
+  const tripTypeId = `${idPrefix}-trip-type`;
+  const modelId = `${idPrefix}-model`;
+  const startAtId = `${idPrefix}-start`;
+  const endAtId = `${idPrefix}-end`;
+
+  useEffect(() => {
+    if (open && !initializedRef.current) {
+      setDraft(makeInitialReportDraft());
+      initializedRef.current = true;
+    } else if (!open && initializedRef.current) {
+      initializedRef.current = false;
+    }
+  }, [open]);
+
   useModalA11y(open, containerRef, { onClose, returnFocusRef });
+
+  if (!open) return null;
+
+  const jobValid = isValidJob(draft.jobNo);
+  const endBeforeStart = new Date(draft.endAt) < new Date(draft.startAt);
+  const canCreate = jobValid && !!draft.tripType && !!draft.model && !endBeforeStart;
+
+  const handleSubmit = () => {
+    if (!canCreate) return;
+    onCreate?.({
+      ...draft,
+      jobNo: clampJob(draft.jobNo),
+    });
+  };
+
+  const handleOverlayMouseDown = (event) => {
+    if (event.target === event.currentTarget) {
+      onClose?.();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      onMouseDown={handleOverlayMouseDown}
+    >
       <div ref={containerRef} tabIndex={-1} className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold">New Report</h3>
@@ -778,42 +814,125 @@ function ReportSetup({
             onClick={onClose}
             aria-label="Close new report dialog"
           >
-            <X size={18}/>
+            <X size={18} />
           </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
-            <label className="block text-sm font-semibold">Job # (format: J#01 … J#99999)</label>
-            <input className={`w-full rounded-xl border px-3 py-2 ${jobValid? '' : 'border-red-400'}`} value={jobNo} onChange={(e)=>setJobNo(e.target.value)} placeholder="J#12345"/>
-            {!jobValid && <div className="text-xs text-red-500 mt-1">Enter at least 2 and up to 5 digits after J# (e.g., J#01, J#20021).</div>}
+            <label className="block text-sm font-semibold" htmlFor={jobFieldId}>
+              Job # (format: J#01 … J#99999)
+            </label>
+            <input
+              id={jobFieldId}
+              className={`w-full rounded-xl border px-3 py-2 ${jobValid ? "" : "border-red-400"}`}
+              value={draft.jobNo}
+              onChange={(event) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  jobNo: clampJob(event.target.value),
+                }))
+              }
+              placeholder="J#12345"
+            />
+            {!jobValid && (
+              <div className="text-xs text-red-500 mt-1">
+                Enter at least 2 and up to 5 digits after J# (e.g., J#01, J#20021).
+              </div>
+            )}
           </div>
           <div>
-            <label className="block text-sm font-semibold">Trip type</label>
-            <select className="w-full rounded-xl border px-3 py-2" value={tripType} onChange={(e)=>setTripType(e.target.value)}>
+            <label className="block text-sm font-semibold" htmlFor={tripTypeId}>
+              Trip type
+            </label>
+            <select
+              id={tripTypeId}
+              className="w-full rounded-xl border px-3 py-2"
+              value={draft.tripType}
+              onChange={(event) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  tripType: event.target.value,
+                }))
+              }
+            >
               <option value="">— Choose —</option>
-              {types.map(t => <option key={t} value={t}>{t}</option>)}
+              {types.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-semibold">Model</label>
-            <select className="w-full rounded-xl border px-3 py-2" value={model} onChange={(e)=>setModel(e.target.value)}>
+            <label className="block text-sm font-semibold" htmlFor={modelId}>
+              Model
+            </label>
+            <select
+              id={modelId}
+              className="w-full rounded-xl border px-3 py-2"
+              value={draft.model}
+              onChange={(event) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  model: event.target.value,
+                }))
+              }
+            >
               <option value="">— Choose model —</option>
-              {MODELS.map(m => <option key={m} value={m}>{m}</option>)}
+              {MODELS.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-semibold">Start</label>
-            <input type="datetime-local" className="w-full rounded-xl border px-3 py-2" value={startAt} onChange={(e)=>setStartAt(e.target.value)} />
+            <label className="block text-sm font-semibold" htmlFor={startAtId}>
+              Start
+            </label>
+            <input
+              id={startAtId}
+              type="datetime-local"
+              className="w-full rounded-xl border px-3 py-2"
+              value={draft.startAt}
+              onChange={(event) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  startAt: event.target.value,
+                }))
+              }
+            />
           </div>
           <div>
-            <label className="block text-sm font-semibold">End</label>
-            <input type="datetime-local" className={`w-full rounded-xl border px-3 py-2 ${endBeforeStart? 'border-red-400' : ''}`} value={endAt} onChange={(e)=>setEndAt(e.target.value)} />
+            <label className="block text-sm font-semibold" htmlFor={endAtId}>
+              End
+            </label>
+            <input
+              id={endAtId}
+              type="datetime-local"
+              className={`w-full rounded-xl border px-3 py-2 ${endBeforeStart ? "border-red-400" : ""}`}
+              value={draft.endAt}
+              onChange={(event) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  endAt: event.target.value,
+                }))
+              }
+            />
             {endBeforeStart && <div className="text-xs text-red-500 mt-1">End must be after Start.</div>}
           </div>
         </div>
         <div className="mt-6 flex justify-end gap-2">
-          <button className="px-4 py-2 rounded-xl border" onClick={onClose}>Cancel</button>
-          <button className="px-4 py-2 rounded-xl bg-blue-600 text-white disabled:opacity-40" disabled={!canCreate} onClick={onCreate}>Create Report</button>
+          <button className="px-4 py-2 rounded-xl border" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="px-4 py-2 rounded-xl bg-blue-600 text-white disabled:opacity-40"
+            disabled={!canCreate}
+            onClick={handleSubmit}
+          >
+            Create Report
+          </button>
         </div>
       </div>
     </div>

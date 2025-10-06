@@ -11,9 +11,19 @@ const getFocusableElements = (container) => {
 
 export function useModalA11y(isOpen, containerRef, { onClose, returnFocusRef } = {}) {
   const lastActiveElementRef = useRef(null);
+  const hasFocusedRef = useRef(false);
+  const closeCallbackRef = useRef(onClose);
 
   useEffect(() => {
-    if (!isOpen) return undefined;
+    closeCallbackRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      hasFocusedRef.current = false;
+      return undefined;
+    }
+
     const node = containerRef?.current;
     if (!node) return undefined;
 
@@ -23,10 +33,12 @@ export function useModalA11y(isOpen, containerRef, { onClose, returnFocusRef } =
         : null;
 
     const focusInitial = () => {
+      if (hasFocusedRef.current) return;
       const focusable = getFocusableElements(node);
       const target = focusable[0] || node;
       if (target && typeof target.focus === "function") {
         target.focus({ preventScroll: true });
+        hasFocusedRef.current = true;
       }
     };
 
@@ -34,7 +46,7 @@ export function useModalA11y(isOpen, containerRef, { onClose, returnFocusRef } =
       if (!isOpen) return;
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose?.();
+        closeCallbackRef.current?.();
         return;
       }
       if (event.key !== "Tab") return;
@@ -60,24 +72,23 @@ export function useModalA11y(isOpen, containerRef, { onClose, returnFocusRef } =
       }
     };
 
-    const cleanup = () => {
-      document.removeEventListener("keydown", handleKeyDown, true);
-    };
-
     document.addEventListener("keydown", handleKeyDown, true);
-    const raf = typeof window !== "undefined" && typeof window.requestAnimationFrame === "function"
-      ? window.requestAnimationFrame
-      : (cb) => setTimeout(cb, 0);
-    const cancel = typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function"
-      ? window.cancelAnimationFrame
-      : (id) => clearTimeout(id);
+
+    const raf =
+      typeof window !== "undefined" && typeof window.requestAnimationFrame === "function"
+        ? window.requestAnimationFrame
+        : (cb) => setTimeout(cb, 0);
+    const cancel =
+      typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function"
+        ? window.cancelAnimationFrame
+        : (id) => clearTimeout(id);
     const rafId = raf(focusInitial);
 
     return () => {
-      cleanup();
+      document.removeEventListener("keydown", handleKeyDown, true);
       cancel(rafId);
     };
-  }, [isOpen, onClose, containerRef]);
+  }, [isOpen, containerRef]);
 
   useEffect(() => {
     if (isOpen) return;
