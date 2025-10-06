@@ -1,9 +1,10 @@
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import { Camera, Trash2 } from "lucide-react";
 import { fileToDataURL, uid } from "../utils/fsr";
 
 function MultiPhotoUpload({ photos = [], onChange, disabled = false }) {
   const inputRef = useRef(null);
+  const photosList = useMemo(() => photos || [], [photos]);
 
   const handleFiles = useCallback(
     async (fileList) => {
@@ -48,9 +49,12 @@ function MultiPhotoUpload({ photos = [], onChange, disabled = false }) {
     [handleFiles],
   );
 
-  const removePhoto = (id) => {
-    onChange((photos || []).filter((photo) => photo.id !== id));
-  };
+  const removePhoto = useCallback(
+    (id) => {
+      onChange((photos || []).filter((photo) => photo.id !== id));
+    },
+    [photos, onChange],
+  );
 
   return (
     <div className="space-y-3">
@@ -86,9 +90,9 @@ function MultiPhotoUpload({ photos = [], onChange, disabled = false }) {
         onChange={onInputChange}
         disabled={disabled}
       />
-      {(photos || []).length > 0 && (
+      {photosList.length > 0 && (
         <div className="flex flex-wrap gap-3">
-          {(photos || []).map((photo, idx) => (
+          {photosList.map((photo, idx) => (
             <div key={photo.id} className="relative w-28 h-28 rounded-2xl overflow-hidden border bg-gray-50">
               <img src={photo.imageUrl} alt={`Attachment ${idx + 1}`} className="w-full h-full object-cover" />
               {!disabled && (

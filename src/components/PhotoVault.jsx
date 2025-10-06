@@ -1,19 +1,50 @@
-import React, { useRef } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import { Images, Trash } from "lucide-react";
 import { fileToDataURL, uid } from "../utils/fsr";
 
-function PhotoVault({ photos, onChange }) {
+function PhotoVault({ photos = [], onChange }) {
   const inputRef = useRef(null);
 
-  const addFiles = async (files) => {
-    const arr = [];
-    // TODO: consider compressing images before storing to reduce localStorage usage.
-    for (const f of files) {
-      const url = await fileToDataURL(f);
-      arr.push({ id: uid(), imageUrl: url, caption: "", createdAt: new Date().toISOString() });
-    }
-    onChange([...(photos || []), ...arr]);
-  };
+  const addFiles = useCallback(
+    async (files) => {
+      const arr = [];
+      for (const file of files) {
+        const url = await fileToDataURL(file);
+        arr.push({ id: uid(), imageUrl: url, caption: "", createdAt: new Date().toISOString() });
+      }
+      if (arr.length === 0) return;
+      onChange((prev = []) => [...prev, ...arr]);
+    },
+    [onChange],
+  );
+
+  const handleInputChange = useCallback(
+    async (event) => {
+      const fileList = event.target.files;
+      if (!fileList || fileList.length === 0) return;
+      await addFiles(fileList);
+      event.target.value = "";
+    },
+    [addFiles],
+  );
+
+  const handleRemove = useCallback(
+    (id) => {
+      onChange((prev = []) => prev.filter((photo) => photo.id !== id));
+    },
+    [onChange],
+  );
+
+  const handleCaptionChange = useCallback(
+    (id, value) => {
+      onChange((prev = []) =>
+        prev.map((photo) => (photo.id === id ? { ...photo, caption: value } : photo)),
+      );
+    },
+    [onChange],
+  );
+
+  const photosList = useMemo(() => photos || [], [photos]);
 
   return (
     <div className="rounded-3xl border shadow-sm p-6 bg-white">
@@ -28,25 +59,20 @@ function PhotoVault({ photos, onChange }) {
             multiple
             accept="image/*"
             className="hidden"
-            onChange={async (e) => {
-              const fs = e.target.files;
-              if (!fs) return;
-              await addFiles(fs);
-              e.target.value = "";
-            }}
+            onChange={handleInputChange}
           />
           <button className="px-3 py-2 rounded-xl border" onClick={() => inputRef.current?.click()}>
             Add Photo(s)
           </button>
         </div>
       </div>
-      {(photos || []).length === 0 ? (
+      {photosList.length === 0 ? (
         <p className="text-gray-500 mt-3">
           No photos yet. Use <b>Add Photo(s)</b> to upload field pictures.
         </p>
       ) : (
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {photos.map((p, idx) => (
+          {photosList.map((p, idx) => (
             <div key={p.id} className="rounded-2xl border overflow-hidden bg-white">
               {p.imageUrl ? (
                 <img src={p.imageUrl} alt={`Field photo ${idx + 1}`} className="h-64 w-full object-cover" />
@@ -58,11 +84,11 @@ function PhotoVault({ photos, onChange }) {
                   className="flex-1 rounded-xl border px-3 py-2"
                   placeholder="Caption (optional)"
                   value={p.caption || ""}
-                  onChange={(e) => onChange(photos.map((x) => (x.id === p.id ? { ...x, caption: e.target.value } : x)))}
+                  onChange={(event) => handleCaptionChange(p.id, event.target.value)}
                 />
                 <button
                   className="p-2 rounded-xl border"
-                  onClick={() => onChange(photos.filter((x) => x.id !== p.id))}
+                  onClick={() => handleRemove(p.id)}
                   aria-label={`Remove photo ${idx + 1}`}
                 >
                   <Trash size={16} />
@@ -76,4 +102,4 @@ function PhotoVault({ photos, onChange }) {
   );
 }
 
-export default PhotoVault;
+export default React.memo(PhotoVault);

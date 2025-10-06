@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { saveTypes } from "../utils/fsr";
 import useModalA11y from "../hooks/useModalA11y";
@@ -7,12 +7,40 @@ function ManageTypes({ open, onClose, types, setTypes, returnFocusRef, storage }
   const [newType, setNewType] = useState("");
   const containerRef = useRef(null);
   useModalA11y(open, containerRef, { onClose, returnFocusRef });
+
+  const items = useMemo(() => types || [], [types]);
+
+  const handleOverlayMouseDown = useCallback(
+    (event) => {
+      if (event.target === event.currentTarget) {
+        onClose?.();
+      }
+    },
+    [onClose],
+  );
+
+  const handleRemove = useCallback(
+    (type) => {
+      setTypes((prev) => {
+        const next = (prev || []).filter((entry) => entry !== type);
+        saveTypes(next, storage);
+        return next;
+      });
+    },
+    [setTypes, storage],
+  );
+
+  const handleAdd = useCallback(() => {
+    const value = newType.trim();
+    if (!value || items.includes(value)) return;
+    const next = [...items, value];
+    setTypes(next);
+    saveTypes(next, storage);
+    setNewType("");
+  }, [items, newType, setTypes, storage]);
+
   if (!open) return null;
-  const handleOverlayMouseDown = (event) => {
-    if (event.target === event.currentTarget) {
-      onClose?.();
-    }
-  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -32,16 +60,12 @@ function ManageTypes({ open, onClose, types, setTypes, returnFocusRef, storage }
           </button>
         </div>
         <div className="space-y-2 max-h-72 overflow-auto">
-          {types.map((t, idx) => (
-            <div key={t + idx} className="flex items-center gap-2">
-              <div className="flex-1 rounded-xl border px-3 py-2">{t}</div>
+          {items.map((type) => (
+            <div key={type} className="flex items-center gap-2">
+              <div className="flex-1 rounded-xl border px-3 py-2">{type}</div>
               <button
                 className="px-3 py-2 rounded-xl border hover:bg-gray-50"
-                onClick={() => {
-                  const up = types.filter((_, i) => i !== idx);
-                  setTypes(up);
-                  saveTypes(up, storage);
-                }}
+                onClick={() => handleRemove(type)}
               >
                 Remove
               </button>
@@ -53,20 +77,12 @@ function ManageTypes({ open, onClose, types, setTypes, returnFocusRef, storage }
             className="flex-1 rounded-xl border px-3 py-2"
             placeholder="e.g. Commissioning"
             value={newType}
-            onChange={(e) => setNewType(e.target.value)}
+            onChange={(event) => setNewType(event.target.value)}
           />
           <button
             className="px-4 py-2 rounded-xl bg-blue-600 text-white disabled:opacity-40"
             disabled={!newType.trim()}
-            onClick={() => {
-              const v = newType.trim();
-              if (!v) return;
-              if (types.includes(v)) return;
-              const up = [...types, v];
-              setTypes(up);
-              saveTypes(up, storage);
-              setNewType("");
-            }}
+            onClick={handleAdd}
           >
             Add
           </button>

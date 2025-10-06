@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "preflight": "npm run lint && npm test -- --run && npm run build"
   },
   "dependencies": {
     "lucide-react": "^0.452.0",
