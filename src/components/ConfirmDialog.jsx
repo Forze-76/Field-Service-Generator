@@ -14,8 +14,18 @@ function ConfirmDialog({
   const containerRef = useRef(null);
   useModalA11y(open, containerRef, { onClose: onCancel, returnFocusRef });
   if (!open) return null;
+  const handleOverlayMouseDown = (event) => {
+    if (event.target === event.currentTarget) {
+      onCancel?.();
+    }
+  };
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="alertdialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      role="alertdialog"
+      aria-modal="true"
+      onMouseDown={handleOverlayMouseDown}
+    >
       <div ref={containerRef} tabIndex={-1} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
         <h3 className="text-lg font-bold">{title}</h3>
         <p className="mt-2 text-sm text-gray-600">{message}</p>

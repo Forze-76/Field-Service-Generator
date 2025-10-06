@@ -8,8 +8,18 @@ function ManageTypes({ open, onClose, types, setTypes, returnFocusRef, storage }
   const containerRef = useRef(null);
   useModalA11y(open, containerRef, { onClose, returnFocusRef });
   if (!open) return null;
+  const handleOverlayMouseDown = (event) => {
+    if (event.target === event.currentTarget) {
+      onClose?.();
+    }
+  };
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      onMouseDown={handleOverlayMouseDown}
+    >
       <div ref={containerRef} tabIndex={-1} className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold">Manage Trip Types</h3>
