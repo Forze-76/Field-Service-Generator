@@ -1,5 +1,5 @@
 // FSR iPad – Web Demo Prototype (React) v0.8 (widgets removed)
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, FileDown, X, Settings, Trash, Search, FolderPlus, Calendar, Home as HomeIcon, Cog, BookOpen } from "lucide-react";
 
 import {
@@ -96,7 +96,10 @@ function Workspace({
   // Persist on changes
   useEffect(() => {
     if (!storage) return;
-    saveReports(reports, storage);
+    const timer = setTimeout(() => {
+      saveReports(reports, storage);
+    }, 200);
+    return () => clearTimeout(timer);
   }, [reports, storage]);
 
   useEffect(() => {
@@ -121,14 +124,21 @@ function Workspace({
   }, [reports.length]);
 
   // When selecting a report, default the active tab to the first document
-  useEffect(()=>{
-    if (selected) {
-      const first = selected.documents?.[0]?.id || null;
-      setActiveDocId(prev => selected.documents?.some(d=>d.id===prev) ? prev : first);
-    } else {
+  const docList = selected?.documents || [];
+  const docIdsKey = useMemo(() => docList.map((doc) => doc.id).join("|"), [docList]);
+
+  useEffect(() => {
+    if (!selected) {
       setActiveDocId(null);
+      return;
     }
-  }, [selectedId]);
+    setActiveDocId((prev) => {
+      if (prev && docList.some((doc) => doc.id === prev)) {
+        return prev;
+      }
+      return docList[0]?.id || null;
+    });
+  }, [selected, docList, docIdsKey]);
 
   const canCreate = isValidJob(jobNo) && !!tripType && !!model && new Date(endAt) >= new Date(startAt);
 
@@ -174,31 +184,73 @@ function Workspace({
     createReport();
   }
 
-  function updateReport(patch) {
-    if (!selected) return;
-    setReports(prev => prev.map(r => r.id===selected.id ? { ...r, ...patch } : r));
-  }
+  const updateReport = useCallback(
+    (patch) => {
+      if (!selectedId) return;
+      setReports((prev) =>
+        prev.map((report) => {
+          if (report.id !== selectedId) return report;
+          const entries = Object.entries(patch || {});
+          if (!entries.length) return report;
+          const hasChange = entries.some(([key, value]) => report[key] !== value);
+          if (!hasChange) return report;
+          return { ...report, ...patch };
+        }),
+      );
+    },
+    [selectedId],
+  );
 
-  function updateDocs(mutator) {
-    if (!selected) return;
-    const next = typeof mutator === 'function' ? mutator(selected.documents||[]) : mutator;
-    updateReport({ documents: next });
-  }
+  const updateDocs = useCallback(
+    (mutator) => {
+      if (!selectedId) return;
+      setReports((prev) =>
+        prev.map((report) => {
+          if (report.id !== selectedId) return report;
+          const currentDocs = report.documents || [];
+          const nextDocs = typeof mutator === "function" ? mutator(currentDocs) : mutator;
+          if (nextDocs === currentDocs) {
+            return report;
+          }
+          return { ...report, documents: nextDocs };
+        }),
+      );
+    },
+    [selectedId],
+  );
 
-  function updateDocById(id, nextDoc){
-    updateDocs((docs)=> (docs||[]).map(d => d.id===id ? nextDoc : d));
-  }
+  const updateDocById = useCallback(
+    (id, nextDoc) => {
+      updateDocs((docs = []) => docs.map((doc) => (doc.id === id ? nextDoc : doc)));
+    },
+    [updateDocs],
+  );
 
-  function updatePhotos(mutator){
-    if(!selected) return;
-    const next = typeof mutator === 'function' ? mutator(selected.photos||[]) : mutator;
-    updateReport({ photos: next });
-  }
+  const updatePhotos = useCallback(
+    (mutator) => {
+      if (!selectedId) return;
+      setReports((prev) =>
+        prev.map((report) => {
+          if (report.id !== selectedId) return report;
+          const currentPhotos = report.photos || [];
+          const nextPhotos = typeof mutator === "function" ? mutator(currentPhotos) : mutator;
+          if (nextPhotos === currentPhotos) {
+            return report;
+          }
+          return { ...report, photos: nextPhotos };
+        }),
+      );
+    },
+    [selectedId],
+  );
 
-  function removeReport(id) {
-    setReports(prev => prev.filter(r=>r.id!==id));
-    if (selectedId===id) setSelectedId(null);
-  }
+  const removeReport = useCallback(
+    (id) => {
+      setReports((prev) => prev.filter((r) => r.id !== id));
+      if (selectedId === id) setSelectedId(null);
+    },
+    [selectedId],
+  );
 
   const filtered = useMemo(()=> {
     const q = search.trim().toLowerCase();
@@ -229,50 +281,92 @@ function Workspace({
     if (needsEntries || needsDetails) {
       updateDocById(fsrDoc.id, { ...fsrDoc, data: ensureFsrDocData(fsrDoc.data) });
     }
-  }, [fsrDoc?.id]);
+  }, [fsrDoc?.id, fsrDoc, updateDocById]);
 
   const activeDoc = selected?.documents?.find(d=>d.id===activeDocId) || null;
   const hasPhotos = (selected?.photos||[]).length>0;
   const isFsrTabActive = (activeDoc?.name || "").toLowerCase() === "field service report";
 
-  const updateFsrData = (mutator) => {
-    if (!fsrDoc) return;
-    const targetId = fsrDoc.id;
-    updateDocs((docs = []) =>
-      (docs || []).map((doc) => {
-        if (doc.id !== targetId) return doc;
-        const base = ensureFsrDocData(doc.data);
-        const result = typeof mutator === "function" ? mutator(base) || base : base;
-        const nextData = ensureFsrDocData(result);
-        return { ...doc, data: nextData };
-      }),
-    );
-  };
+  const fsrDocId = fsrDoc?.id;
 
-  const handleAddEntry = (entry) => {
-    updateFsrData((data) => addEntryWithEffects(data, entry));
-  };
+  const updateFsrData = useCallback(
+    (mutator) => {
+      if (!selectedId || !fsrDocId) return;
+      setReports((prev) =>
+        prev.map((report) => {
+          if (report.id !== selectedId) return report;
+          const docs = report.documents || [];
+          let changed = false;
+          const nextDocs = docs.map((doc) => {
+            if (doc.id !== fsrDocId) return doc;
+            const base = ensureFsrDocData(doc.data);
+            const result = typeof mutator === "function" ? mutator(base) || base : base;
+            const nextData = ensureFsrDocData(result);
+            if (nextData === doc.data) {
+              return doc;
+            }
+            changed = true;
+            return { ...doc, data: nextData };
+          });
+          if (!changed) {
+            return report;
+          }
+          return { ...report, documents: nextDocs };
+        }),
+      );
+    },
+    [selectedId, fsrDocId],
+  );
 
-  const handleUpdateEntry = (id, updater) => {
-    updateFsrData((data) => updateEntryInFsrData(data, id, updater));
-  };
+  const handleAddEntry = useCallback(
+    (entry) => {
+      updateFsrData((data) => addEntryWithEffects(data, entry));
+    },
+    [updateFsrData],
+  );
 
-  const handleRemoveEntry = (id) => {
-    updateFsrData((data) => removeEntryFromFsrData(data, id));
-  };
+  const handleUpdateEntry = useCallback(
+    (id, updater) => {
+      updateFsrData((data) => updateEntryInFsrData(data, id, updater));
+    },
+    [updateFsrData],
+  );
 
-  const handleMoveEntry = (id, direction) => {
-    updateFsrData((data) => moveEntryInFsrData(data, id, direction));
-  };
+  const handleRemoveEntry = useCallback(
+    (id) => {
+      updateFsrData((data) => removeEntryFromFsrData(data, id));
+    },
+    [updateFsrData],
+  );
 
-  const handleCollapseAll = (collapsed) => {
-    updateFsrData((data) => setEntriesCollapsedState(data, collapsed));
-  };
+  const handleMoveEntry = useCallback(
+    (id, direction) => {
+      updateFsrData((data) => moveEntryInFsrData(data, id, direction));
+    },
+    [updateFsrData],
+  );
 
-  const handleSync = () => {
+  const handleCollapseAll = useCallback(
+    (collapsed) => {
+      updateFsrData((data) => setEntriesCollapsedState(data, collapsed));
+    },
+    [updateFsrData],
+  );
+
+  const activeDocIdMemo = activeDoc?.id;
+
+  const handleUpdateActiveDoc = useCallback(
+    (nextDoc) => {
+      if (!activeDocIdMemo) return;
+      updateDocById(activeDocIdMemo, nextDoc);
+    },
+    [activeDocIdMemo, updateDocById],
+  );
+
+  const handleSync = useCallback(() => {
     console.log("Cloud sync placeholder—no server configured.");
     setToast({ id: Date.now(), text: "Cloud sync placeholder—no server configured." });
-  };
+  }, []);
 
   return (
     <div className="min-h-dvh bg-gradient-to-b from-gray-50 to-white">
@@ -481,7 +575,7 @@ function Workspace({
                 </div>
               </div>
 
-              <SerialTagCard report={selected} onChange={(patch)=>updateReport(patch)} />
+              <SerialTagCard report={selected} onChange={updateReport} />
 
               {isFsrTabActive && !selected.serialTagImageUrl && !selected.serialTagMissing && (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-700">
@@ -505,7 +599,7 @@ function Workspace({
                     readyForIssue={readyForIssues}
                   />
                   <div>
-                    <PhotoVault photos={selected.photos||[]} onChange={(next)=>updatePhotos(next)} />
+                  <PhotoVault photos={selected.photos||[]} onChange={updatePhotos} />
                   </div>
                 </div>
               )}
@@ -516,8 +610,8 @@ function Workspace({
                   <ServiceSummaryForm
                     report={selected}
                     doc={activeDoc}
-                    onUpdateReport={(patch)=>updateReport(patch)}
-                    onUpdateDoc={(next)=>updateDocById(activeDoc.id, next)}
+                    onUpdateReport={updateReport}
+                    onUpdateDoc={handleUpdateActiveDoc}
                   />
                 </div>
               )}
@@ -551,7 +645,7 @@ function Workspace({
           open={docsOpen}
           onClose={()=>setDocsOpen(false)}
           documents={selected.documents||[]}
-          onChange={(next)=>updateDocs(next)}
+          onChange={updateDocs}
           returnFocusRef={docsTriggerRef}
         />
       )}

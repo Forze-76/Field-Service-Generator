@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -70,6 +70,11 @@ const Label = ({ children }) => (
   <div className="text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">{children}</div>
 );
 
+const mkId = () =>
+  (typeof globalThis !== "undefined" && globalThis.crypto?.randomUUID
+    ? globalThis.crypto.randomUUID()
+    : uid());
+
 const createDraft = (type) => {
   switch (type) {
     case "issue":
@@ -80,7 +85,7 @@ const createDraft = (type) => {
       return {
         type,
         note: "",
-        parts: [{ id: uid(), partNo: "", desc: "", qty: "" }],
+        parts: [{ id: mkId(), partNo: "", desc: "", qty: "" }],
         collapsed: true,
       };
     case "docRequest":
@@ -182,7 +187,8 @@ function EntryForm({ value, onChange }) {
   }
 
   if (value.type === "orderParts") {
-    const parts = value.parts && value.parts.length ? value.parts : [{ id: uid(), partNo: "", desc: "", qty: "" }];
+    const parts =
+      value.parts && value.parts.length ? value.parts : [{ id: mkId(), partNo: "", desc: "", qty: "" }];
     const updatePart = (index, patch) => {
       const next = parts.map((row, idx) => (idx === index ? { ...row, ...patch } : row));
       onChange({ ...value, parts: next });
@@ -192,7 +198,7 @@ function EntryForm({ value, onChange }) {
       onChange({ ...value, parts: next });
     };
     const addPart = () => {
-      onChange({ ...value, parts: [...parts, { id: uid(), partNo: "", desc: "", qty: "" }] });
+      onChange({ ...value, parts: [...parts, { id: mkId(), partNo: "", desc: "", qty: "" }] });
     };
     return (
       <div className="space-y-4">
@@ -213,7 +219,7 @@ function EntryForm({ value, onChange }) {
             <div className="col-span-12 md:col-span-2">Qty</div>
           </div>
           {parts.map((row, index) => (
-            <div key={row.id || index} className="grid grid-cols-12 gap-2 px-3 py-2 border-t">
+            <div key={row.id} className="grid grid-cols-12 gap-2 px-3 py-2 border-t">
               <input
                 className="col-span-12 md:col-span-3 rounded-xl border px-3 py-2 text-sm"
                 value={row.partNo}
@@ -426,27 +432,27 @@ function FsrEntriesSection({
   const modalTriggerRef = useRef(null);
   const modalContainerRef = useRef(null);
 
-  const openModal = (trigger) => {
+  const openModal = useCallback((trigger) => {
     setDraftType(null);
     setDraft(null);
     modalTriggerRef.current = trigger || null;
     setModalOpen(true);
-  };
+  }, []);
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     setModalOpen(false);
     setDraftType(null);
     setDraft(null);
-  };
+  }, []);
 
   useModalA11y(modalOpen, modalContainerRef, { onClose: closeModal, returnFocusRef: modalTriggerRef });
 
-  const startDraft = (type) => {
+  const startDraft = useCallback((type) => {
     setDraftType(type);
     setDraft(createDraft(type));
-  };
+  }, []);
 
-  const handleSubmitDraft = () => {
+  const handleSubmitDraft = useCallback(() => {
     if (!draftType || !draft) return;
     const base = { ...draft, type: draftType, collapsed: true, createdAt: new Date().toISOString() };
     if (draftType === "orderParts") {
@@ -456,18 +462,24 @@ function FsrEntriesSection({
       onAddEntry(base);
     }
     closeModal();
-  };
+  }, [draft, draftType, onAddEntry, closeModal]);
 
-  const handleQuickIssue = (event) => {
-    if (!readyForIssue) return;
-    modalTriggerRef.current = event?.currentTarget || null;
-    setModalOpen(true);
-    startDraft("issue");
-  };
+  const handleQuickIssue = useCallback(
+    (event) => {
+      if (!readyForIssue) return;
+      modalTriggerRef.current = event?.currentTarget || null;
+      setModalOpen(true);
+      startDraft("issue");
+    },
+    [readyForIssue, startDraft],
+  );
 
-  const handleToggleCollapse = (id, collapsed) => {
-    onUpdateEntry(id, (prev) => ({ ...prev, collapsed }));
-  };
+  const handleToggleCollapse = useCallback(
+    (id, collapsed) => {
+      onUpdateEntry(id, (prev) => ({ ...prev, collapsed }));
+    },
+    [onUpdateEntry],
+  );
 
   return (
     <div className="space-y-4">
@@ -596,4 +608,4 @@ function FsrEntriesSection({
   );
 }
 
-export default FsrEntriesSection;
+export default React.memo(FsrEntriesSection);

@@ -21,5 +21,6 @@ module.exports = {
     "no-unused-vars": "warn",
     "react-hooks/exhaustive-deps": "warn",
     "react/react-in-jsx-scope": "off",
+    "react/jsx-key": "error",
   },
 };

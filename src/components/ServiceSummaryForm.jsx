@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { makeEmptyServiceSummaryData, SS_MODEL_KEYS, uid } from "../utils/fsr";
 
 function TinyLabel({ children }) {
@@ -70,19 +70,25 @@ function SharedSiteBlock({ shared, onChange }) {
 
 function ServiceSummaryForm({ report, doc, onUpdateReport, onUpdateDoc }) {
   const data = doc.data || makeEmptyServiceSummaryData();
-  const setData = (patch) => onUpdateDoc({ ...doc, data: { ...data, ...patch } });
+  const setData = useCallback(
+    (patch) => onUpdateDoc({ ...doc, data: { ...data, ...patch } }),
+    [doc, data, onUpdateDoc],
+  );
   const shared = report.sharedSite || {};
-  const setShared = (patch) => onUpdateReport({ sharedSite: { ...shared, ...patch } });
+  const setShared = useCallback(
+    (patch) => onUpdateReport({ sharedSite: { ...shared, ...patch } }),
+    [onUpdateReport, shared],
+  );
 
-  const toggleModel = (k, v) => setData({ modelChecks: { ...data.modelChecks, [k]: v } });
+  const toggleModel = useCallback((k, v) => setData({ modelChecks: { ...data.modelChecks, [k]: v } }), [setData, data.modelChecks]);
 
-  const addRow = () => {
+  const addRow = useCallback(() => {
     if ((data.timeLogs || []).length >= 7) return;
     setData({
       timeLogs: [...(data.timeLogs || []), { id: uid(), date: "", timeIn: "", timeOut: "", travelTime: "", signature: "" }],
     });
-  };
-  const removeRow = (id) => setData({ timeLogs: (data.timeLogs || []).filter((r) => r.id !== id) });
+  }, [data.timeLogs, setData]);
+  const removeRow = useCallback((id) => setData({ timeLogs: (data.timeLogs || []).filter((r) => r.id !== id) }), [data.timeLogs, setData]);
 
   return (
     <div className="space-y-6">
@@ -91,7 +97,12 @@ function ServiceSummaryForm({ report, doc, onUpdateReport, onUpdateDoc }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <TinyLabel>Reason for visit</TinyLabel>
-          <TinyTextArea value={data.reasonForVisit} onChange={(e) => setData({ reasonForVisit: e.target.value })} />
+          <TinyTextArea
+            value={data.reasonForVisit}
+            onChange={(e) => setData({ reasonForVisit: e.target.value })}
+            aria-label="Reason for visit"
+            name="reasonForVisit"
+          />
         </div>
         <div>
           <TinyLabel>Model classification (form checkboxes)</TinyLabel>
@@ -255,4 +266,4 @@ function ServiceSummaryForm({ report, doc, onUpdateReport, onUpdateDoc }) {
   );
 }
 
-export default ServiceSummaryForm;
+export default React.memo(ServiceSummaryForm);
