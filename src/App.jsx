@@ -119,21 +119,28 @@ function Workspace({
   }, [reports.length]);
 
   // When selecting a report, default the active tab to the first document
-  const docList = selected?.documents || [];
-  const docIdsKey = useMemo(() => docList.map((doc) => doc.id).join("|"), [docList]);
+  const docIdsKey = useMemo(() => {
+    const docs = selected?.documents || [];
+    return docs.map((doc) => doc.id).join("|");
+  }, [selected?.documents]);
 
   useEffect(() => {
     if (!selected) {
       setActiveDocId(null);
       return;
     }
+    const docs = selected.documents || [];
+    if (docs.length === 0) {
+      setActiveDocId(null);
+      return;
+    }
     setActiveDocId((prev) => {
-      if (prev && docList.some((doc) => doc.id === prev)) {
+      if (prev && docs.some((doc) => doc.id === prev)) {
         return prev;
       }
-      return docList[0]?.id || null;
+      return docs[0]?.id || null;
     });
-  }, [selected, docList, docIdsKey]);
+  }, [selected?.id, docIdsKey]);
 
   const createReportFromDraft = useCallback(
     (draft) => {
@@ -219,8 +226,14 @@ function Workspace({
   );
 
   const updateDocById = useCallback(
-    (id, nextDoc) => {
-      updateDocs((docs = []) => docs.map((doc) => (doc.id === id ? nextDoc : doc)));
+    (id, value) => {
+      updateDocs((docs = []) =>
+        docs.map((doc) => {
+          if (doc.id !== id) return doc;
+          const nextDoc = typeof value === "function" ? value(doc) : value;
+          return nextDoc || doc;
+        }),
+      );
     },
     [updateDocs],
   );
@@ -269,24 +282,23 @@ function Workspace({
 
   const readyForIssues = selected ? (!!selected.serialTagImageUrl || !!selected.serialTagMissing) : false;
   const fsrDoc = selected?.documents?.find(d => (d.name||"").toLowerCase() === 'field service report');
+  const fsrDocId = fsrDoc?.id;
+  const fsrDocData = fsrDoc?.data;
   const fsrData = ensureFsrDocData(fsrDoc?.data);
   const fsrEntries = fsrData.entries || [];
   const fsrIssueEntries = fsrEntries.filter((entry) => entry.type === "issue");
 
   useEffect(() => {
-    if (!fsrDoc) return;
-    const needsEntries = !Array.isArray(fsrDoc.data?.entries);
-    const needsDetails = typeof fsrDoc.data?.details !== "object";
-    if (needsEntries || needsDetails) {
-      updateDocById(fsrDoc.id, { ...fsrDoc, data: ensureFsrDocData(fsrDoc.data) });
-    }
-  }, [fsrDoc?.id, fsrDoc, updateDocById]);
+    if (!fsrDocId) return;
+    const needsEntries = !Array.isArray(fsrDocData?.entries);
+    const needsDetails = typeof fsrDocData?.details !== "object";
+    if (!needsEntries && !needsDetails) return;
+    updateDocById(fsrDocId, (doc) => ({ ...doc, data: ensureFsrDocData(fsrDocData) }));
+  }, [fsrDocId, fsrDocData, updateDocById]);
 
   const activeDoc = selected?.documents?.find(d=>d.id===activeDocId) || null;
   const hasPhotos = (selected?.photos||[]).length>0;
   const isFsrTabActive = (activeDoc?.name || "").toLowerCase() === "field service report";
-
-  const fsrDocId = fsrDoc?.id;
 
   const updateFsrData = useCallback(
     (mutator) => {

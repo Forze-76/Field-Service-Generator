@@ -1,24 +1,39 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { X, CheckSquare, Square, Trash } from "lucide-react";
 import { uid } from "../utils/fsr";
 import useModalA11y from "../hooks/useModalA11y";
 
 function DocumentsManager({ documents, onChange }) {
   const [name, setName] = useState("");
-  const add = () => {
+  const items = useMemo(() => documents || [], [documents]);
+
+  const add = useCallback(() => {
     const v = name.trim();
     if (!v) return;
-    onChange([...(documents || []), { id: uid(), name: v, done: false, data: {} }]);
+    const nextDoc = { id: uid(), name: v, done: false, data: {} };
+    onChange((prev = []) => [...prev, nextDoc]);
     setName("");
-  };
-  const toggle = (id) => onChange((documents || []).map((d) => (d.id === id ? { ...d, done: !d.done } : d)));
-  const remove = (id) => onChange((documents || []).filter((d) => d.id !== id));
+  }, [name, onChange]);
+
+  const toggle = useCallback(
+    (id) => {
+      onChange((prev = []) => prev.map((doc) => (doc.id === id ? { ...doc, done: !doc.done } : doc)));
+    },
+    [onChange],
+  );
+
+  const remove = useCallback(
+    (id) => {
+      onChange((prev = []) => prev.filter((doc) => doc.id !== id));
+    },
+    [onChange],
+  );
 
   return (
     <div>
       <div className="space-y-2">
-        {(documents || []).length === 0 && <div className="text-sm text-gray-500">No documents yet.</div>}
-        {(documents || []).map((d) => (
+        {items.length === 0 && <div className="text-sm text-gray-500">No documents yet.</div>}
+        {items.map((d) => (
           <div key={d.id} className="flex items-center justify-between rounded-xl border px-3 py-2">
             <button className="flex items-center gap-2" onClick={() => toggle(d.id)}>
               {d.done ? <CheckSquare size={18} /> : <Square size={18} />}
