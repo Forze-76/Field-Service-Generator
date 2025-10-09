@@ -2,7 +2,7 @@ import React, { useRef } from "react";
 import { BookOpen, Camera } from "lucide-react";
 import { fileToDataURL, formatRange } from "../utils/fsr";
 
-function ReportHeaderBar({ report, onUpdateReport, onOpenManuals, manualsButtonRef }) {
+function ReportHeaderBar({ report, onUpdateReport, onOpenManuals, manualsButtonRef, showMetaChips = false }) {
   const inputRef = useRef(null);
 
   return (
@@ -62,26 +62,30 @@ function ReportHeaderBar({ report, onUpdateReport, onOpenManuals, manualsButtonR
         {/* Divider */}
         <div className="border-l" />
 
-        {/* Info items + Manuals */}
+        {/* Info items (optional) + Manuals */}
         <div className="flex-1 flex items-start justify-between gap-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-sm text-gray-500">Job #</div>
-              <div className="font-semibold">{report.jobNo}</div>
+          {showMetaChips ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-sm text-gray-500">Job #</div>
+                <div className="font-semibold">{report.jobNo}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-500">Model</div>
+                <div className="font-semibold">{report.model || '-'}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-500">Trip Type</div>
+                <div className="font-semibold">{report.tripType}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-500">Dates</div>
+                <div className="font-semibold">{formatRange(report.startAt, report.endAt)}</div>
+              </div>
             </div>
-            <div>
-              <div className="text-sm text-gray-500">Model</div>
-              <div className="font-semibold">{report.model || '-'}</div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-500">Trip Type</div>
-              <div className="font-semibold">{report.tripType}</div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-500">Dates</div>
-              <div className="font-semibold">{formatRange(report.startAt, report.endAt)}</div>
-            </div>
-          </div>
+          ) : (
+            <div className="flex-1" />
+          )}
           <div className="flex items-start">
             <button
               ref={manualsButtonRef}
