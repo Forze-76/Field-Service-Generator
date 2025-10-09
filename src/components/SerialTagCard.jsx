@@ -2,14 +2,17 @@ import React, { useRef } from "react";
 import { Camera } from "lucide-react";
 import { fileToDataURL } from "../utils/fsr";
 
-function SerialTagCard({ report, onChange }) {
+function SerialTagCard({ report, onChange, headerRight }) {
   const inputRef = useRef(null);
   const hasSerial = !!report.serialTagImageUrl;
 
   return (
     <div className="rounded-2xl border p-4 bg-white">
       <div className="flex items-center justify-between">
-        <h3 className="font-bold">Serial Number Tag</h3>
+        <div className="flex items-center gap-3 flex-wrap">
+          <h3 className="font-bold">Serial Number Tag</h3>
+          {headerRight}
+        </div>
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
