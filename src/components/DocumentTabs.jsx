@@ -1,6 +1,6 @@
 import React from "react";
 
-function FSRInfoTab({ documents, activeId, onSelect }) {
+function DocumentTabs({ documents, activeId, onSelect }) {
   return (
     <div className="rounded-2xl border bg-white p-2 flex items-center gap-2 overflow-x-auto">
       {(documents || []).map((doc) => (
@@ -24,4 +24,4 @@ function FSRInfoTab({ documents, activeId, onSelect }) {
   );
 }
 
-export default FSRInfoTab;
+export default DocumentTabs;

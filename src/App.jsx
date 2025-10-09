@@ -28,7 +28,7 @@ import {
 } from "./utils/fsr";
 import {
   ConfirmDialog,
-  FSRInfoTab,
+  DocumentTabs,
   FsrEntriesSection,
   ManageDocsModal,
   ManageTypes,
@@ -606,12 +606,13 @@ function Workspace({
 
               {/* Document Tabs (top for non-FSR) */}
               {!isFsrTabActive && (
-                <FSRInfoTab documents={selected.documents||[]} activeId={activeDocId} onSelect={setActiveDocId} />
+                <DocumentTabs documents={selected.documents||[]} activeId={activeDocId} onSelect={setActiveDocId} />
               )}
 
               {/* Active Document Body */}
               {activeDoc && (activeDoc.name||"").toLowerCase()==='field service report' && (
                 <div className="rounded-3xl border shadow-sm p-6 bg-white space-y-6">
+                  <DocumentTabs documents={selected.documents||[]} activeId={activeDocId} onSelect={setActiveDocId} />
                   <FsrEntriesSection
                     entries={fsrEntries}
                     onAddEntry={handleAddEntry}
@@ -668,10 +669,8 @@ function Workspace({
                 </div>
               )}
 
-              {/* Tabs at bottom for FSR, followed by Info bar */}
+              {/* Info bar below FSR card */}
               {isFsrTabActive && (
-                <>
-                  <FSRInfoTab documents={selected.documents||[]} activeId={activeDocId} onSelect={setActiveDocId} />
                   <div className="rounded-3xl border shadow-sm p-6 bg-white mt-6">
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                       <div>
@@ -733,7 +732,6 @@ function Workspace({
                       </div>
                     </div>
                   </div>
-                </>
               )}
 
               <StorageMeter bytes={reportsSizeBytes} className="bg-white/70" />
