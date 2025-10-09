@@ -540,11 +540,7 @@ function Workspace({
                 manualsButtonRef={manualsTriggerRef}
               />
 
-              {isFsrTabActive && !selected.serialTagImageUrl && !selected.serialTagMissing && (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-700">
-                  Reminder: add a serial tag photo or check <b>None available</b> before logging issues.
-                </div>
-              )}
+              {/* Removed amber reminder below header to reduce noise */}
 
               {/* Document Tabs (top for non-FSR) */}
               {!isFsrTabActive && (
