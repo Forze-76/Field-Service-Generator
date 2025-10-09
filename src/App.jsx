@@ -41,6 +41,7 @@ import {
   MotorTestForm,
   AcceptanceCertificationForm,
   ReportHeaderBar,
+  DocEditorShell,
 } from "./components";
 import useModalA11y from "./hooks/useModalA11y";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
@@ -542,25 +543,17 @@ function Workspace({
 
               {/* Removed amber reminder below header to reduce noise */}
 
-              {/* Document Tabs (top for non-FSR) */}
-              {!isFsrTabActive && (
-                <DocumentTabs
-                  documents={selected.documents||[]}
-                  activeId={activeDocId}
-                  onSelect={setActiveDocId}
-                  onReorder={(next) => updateDocs(next)}
-                />
-              )}
+              
 
               {/* Active Document Body */}
               {activeDoc && (activeDoc.name||"").toLowerCase()==='field service report' && (
-                <div className="rounded-3xl border shadow-sm p-6 bg-white space-y-6">
-                  <DocumentTabs
-                    documents={selected.documents||[]}
-                    activeId={activeDocId}
-                    onSelect={setActiveDocId}
-                    onReorder={(next) => updateDocs(next)}
-                  />
+                <DocEditorShell
+                  documents={selected.documents||[]}
+                  activeId={activeDocId}
+                  onSelect={setActiveDocId}
+                  onReorder={(next)=>updateDocs(next)}
+                  className="rounded-3xl border shadow-sm p-6 bg-white space-y-6"
+                >
                   <FsrEntriesSection
                     entries={fsrEntries}
                     onAddEntry={handleAddEntry}
@@ -571,13 +564,19 @@ function Workspace({
                     readyForIssue={readyForIssues}
                   />
                   <div>
-                  <PhotoVault photos={selected.photos||[]} onChange={updatePhotos} />
+                    <PhotoVault photos={selected.photos||[]} onChange={updatePhotos} />
                   </div>
-                </div>
+                </DocEditorShell>
               )}
 
               {activeDoc && (activeDoc.name||"").toLowerCase()==='service summary' && (
-                <div className="rounded-3xl border shadow-sm p-6 bg-white">
+                <DocEditorShell
+                  documents={selected.documents||[]}
+                  activeId={activeDocId}
+                  onSelect={setActiveDocId}
+                  onReorder={(next)=>updateDocs(next)}
+                  className="rounded-3xl border shadow-sm p-6 bg-white"
+                >
                   <h3 className="text-lg font-bold mb-4">Service Summary</h3>
                   <ServiceSummaryForm
                     report={selected}
@@ -585,25 +584,37 @@ function Workspace({
                     onUpdateReport={updateReport}
                     onUpdateDoc={handleUpdateActiveDoc}
                   />
-                </div>
+                </DocEditorShell>
               )}
 
               {activeDoc && isAcceptanceDocActive && (
-                <div className="rounded-3xl border shadow-sm p-6 bg-white space-y-4">
+                <DocEditorShell
+                  documents={selected.documents||[]}
+                  activeId={activeDocId}
+                  onSelect={setActiveDocId}
+                  onReorder={(next)=>updateDocs(next)}
+                  className="rounded-3xl border shadow-sm p-6 bg-white space-y-4"
+                >
                   <h3 className="text-lg font-bold">{ACCEPTANCE_CERT_DOC_NAME}</h3>
                   <AcceptanceCertificationForm
                     report={selected}
                     doc={activeDoc}
                     onUpdateDoc={handleUpdateActiveDoc}
                   />
-                </div>
+                </DocEditorShell>
               )}
 
               {activeDoc && isMotorTestDocActive && (
-                <div className="rounded-3xl border shadow-sm p-6 bg-white space-y-4">
+                <DocEditorShell
+                  documents={selected.documents||[]}
+                  activeId={activeDocId}
+                  onSelect={setActiveDocId}
+                  onReorder={(next)=>updateDocs(next)}
+                  className="rounded-3xl border shadow-sm p-6 bg-white space-y-4"
+                >
                   <h3 className="text-lg font-bold">{MOTOR_TEST_DOC_NAME}</h3>
                   <MotorTestForm report={selected} doc={activeDoc} onUpdateDoc={handleUpdateActiveDoc} />
-                </div>
+                </DocEditorShell>
               )}
 
               {activeDoc &&
@@ -611,10 +622,16 @@ function Workspace({
                 (activeDoc.name || "").toLowerCase() !== "service summary" &&
                 !isMotorTestDocActive &&
                 !isAcceptanceDocActive && (
-                <div className="rounded-3xl border shadow-sm p-6 bg-white">
+                <DocEditorShell
+                  documents={selected.documents||[]}
+                  activeId={activeDocId}
+                  onSelect={setActiveDocId}
+                  onReorder={(next)=>updateDocs(next)}
+                  className="rounded-3xl border shadow-sm p-6 bg-white"
+                >
                   <h3 className="text-lg font-bold">{activeDoc.name}</h3>
                   <p className="text-gray-500 mt-2">This will be a form with questions soon. Use the Docs button near Trip Type to add/remove documents and mark completed.</p>
-                </div>
+                </DocEditorShell>
               )}
 
               {/* Legacy per-document info/serial bars removed; actions remain below as before if present elsewhere */}

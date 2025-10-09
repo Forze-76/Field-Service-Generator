@@ -13,3 +13,4 @@ export { default as UserMenu } from "./UserMenu.jsx";
 export { default as MotorTestForm } from "./MotorTestForm.jsx";
 export { default as AcceptanceCertificationForm } from "./AcceptanceCertificationForm.jsx";
 export { default as ReportHeaderBar } from "./ReportHeaderBar.jsx";
+export { default as DocEditorShell } from "./DocEditorShell.jsx";
