@@ -544,13 +544,23 @@ function Workspace({
 
               {/* Document Tabs (top for non-FSR) */}
               {!isFsrTabActive && (
-                <DocumentTabs documents={selected.documents||[]} activeId={activeDocId} onSelect={setActiveDocId} />
+                <DocumentTabs
+                  documents={selected.documents||[]}
+                  activeId={activeDocId}
+                  onSelect={setActiveDocId}
+                  onReorder={(next) => updateDocs(next)}
+                />
               )}
 
               {/* Active Document Body */}
               {activeDoc && (activeDoc.name||"").toLowerCase()==='field service report' && (
                 <div className="rounded-3xl border shadow-sm p-6 bg-white space-y-6">
-                  <DocumentTabs documents={selected.documents||[]} activeId={activeDocId} onSelect={setActiveDocId} />
+                  <DocumentTabs
+                    documents={selected.documents||[]}
+                    activeId={activeDocId}
+                    onSelect={setActiveDocId}
+                    onReorder={(next) => updateDocs(next)}
+                  />
                   <FsrEntriesSection
                     entries={fsrEntries}
                     onAddEntry={handleAddEntry}
