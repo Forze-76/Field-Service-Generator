@@ -28,7 +28,7 @@ import {
 } from "./utils/fsr";
 import {
   ConfirmDialog,
-  DocumentTabs,
+  FSRInfoTab,
   FsrEntriesSection,
   ManageDocsModal,
   ManageTypes,
@@ -606,7 +606,7 @@ function Workspace({
 
               {/* Document Tabs (top for non-FSR) */}
               {!isFsrTabActive && (
-                <DocumentTabs documents={selected.documents||[]} activeId={activeDocId} onSelect={setActiveDocId} />
+                <FSRInfoTab documents={selected.documents||[]} activeId={activeDocId} onSelect={setActiveDocId} />
               )}
 
               {/* Active Document Body */}
@@ -671,7 +671,7 @@ function Workspace({
               {/* Tabs at bottom for FSR, followed by Info bar */}
               {isFsrTabActive && (
                 <>
-                  <DocumentTabs documents={selected.documents||[]} activeId={activeDocId} onSelect={setActiveDocId} />
+                  <FSRInfoTab documents={selected.documents||[]} activeId={activeDocId} onSelect={setActiveDocId} />
                   <div className="rounded-3xl border shadow-sm p-6 bg-white mt-6">
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                       <div>
