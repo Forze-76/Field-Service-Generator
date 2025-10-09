@@ -1,10 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
   addEntryWithEffects,
+  ACCEPTANCE_CERT_DOC_NAME,
+  ACCEPTANCE_CERT_LEGACY_NAMES,
   buildReportHtml,
   computeDowntimeMinutes,
+  ensureAcceptanceCertificationData,
   ensureFsrDocData,
+  ensureMotorTestData,
+  loadReports,
+  makeDocs,
+  makeEmptyAcceptanceCertificationData,
+  makeEmptyMotorTestData,
   mergePartsNeeded,
+  MOTOR_TEST_DOC_NAME,
+  MOTOR_TEST_LEGACY_NAMES,
 } from "./fsr";
 
 const baseReportInfo = {
@@ -234,5 +244,276 @@ describe("buildReportHtml", () => {
     const html = buildReportHtml(report, { name: "Alex Tech", email: "alex@pflow.com" });
     expect(html).toContain("Alex Tech — Field Service Tech");
     expect(html).toContain("alex@pflow.com");
+  });
+
+  it("includes motor test data only when populated", () => {
+    const baseReport = {
+      ...baseReportInfo,
+      tripType: "Start Up",
+      sharedSite: {
+        jobName: "Galaxy Tower",
+        serialNumberText: "M-1000",
+        siteStreetAddress: "100 State St",
+        siteCity: "Milwaukee",
+        siteState: "WI",
+        siteZip: "53202",
+      },
+      documents: [
+        {
+          id: "fsr",
+          name: "Field Service Report",
+          done: false,
+          data: ensureFsrDocData({ entries: [] }),
+        },
+        {
+          id: "motor-empty",
+          name: MOTOR_TEST_DOC_NAME,
+          done: false,
+          data: makeEmptyMotorTestData(),
+        },
+      ],
+      photos: [],
+    };
+
+    const withoutDataHtml = buildReportHtml(baseReport);
+    expect(withoutDataHtml).not.toContain(
+      `<div class="section-title">${MOTOR_TEST_DOC_NAME}</div>`,
+    );
+
+    const populatedData = ensureMotorTestData({
+      jobName: "Galaxy Tower",
+      pflowSerialNumber: "M-1000",
+      modelNumber: "21",
+      ratedLoad: "4000",
+      motor: { manufacturer: "ACME", serialNumber: "SN-1" },
+      voltIncoming: { l1l2: "480", l1l3: "478", l2l3: "481" },
+    });
+
+    const withDataHtml = buildReportHtml({
+      ...baseReport,
+      documents: [
+        baseReport.documents[0],
+        {
+          id: "motor",
+          name: MOTOR_TEST_DOC_NAME,
+          done: false,
+          data: populatedData,
+        },
+      ],
+    });
+
+    expect(withDataHtml).toContain(
+      `<div class="section-title">${MOTOR_TEST_DOC_NAME}</div>`,
+    );
+    expect(withDataHtml).toContain("Rated Load");
+    expect(withDataHtml).toContain("Galaxy Tower");
+    expect(withDataHtml).toContain("ACME");
+  });
+
+  it("includes the acceptance certification section when populated", () => {
+    const report = {
+      ...baseReportInfo,
+      tripType: "Start Up",
+      sharedSite: {
+        jobName: "Galaxy Tower",
+        serialNumberText: "M-1000",
+        siteStreetAddress: "100 State St",
+        siteCity: "Milwaukee",
+        siteState: "WI",
+        siteZip: "53202",
+      },
+      documents: [
+        {
+          id: "fsr",
+          name: "Field Service Report",
+          done: false,
+          data: ensureFsrDocData({ entries: [] }),
+        },
+        {
+          id: "acceptance",
+          name: ACCEPTANCE_CERT_DOC_NAME,
+          done: false,
+          data: ensureAcceptanceCertificationData({
+            jobName: "Galaxy Tower",
+            pflowSerialNumber: "M-1000",
+            modelNumber: "21",
+            customerContactName: "Taylor Client",
+            loadTest: { yes: true, percent: "80%" },
+            operationTestYes: true,
+            gateInterlock: "yes",
+            customerInitials: "TC",
+            acceptedByName: "Taylor Client",
+            pflowRepName: "Jordan Tech",
+            acceptanceNotes: "All tests completed successfully.",
+          }),
+        },
+      ],
+      photos: [],
+    };
+
+    const html = buildReportHtml(report);
+    expect(html).toContain(`<div class="section-title">${ACCEPTANCE_CERT_DOC_NAME}</div>`);
+    expect(html).toContain("Taylor Client");
+    expect(html).toContain("80%");
+    expect(html).toContain("Jordan Tech");
+    expect(html).toContain("All tests completed successfully.");
+  });
+
+  it("omits the acceptance certification section when empty", () => {
+    const report = {
+      ...baseReportInfo,
+      tripType: "Start Up",
+      documents: [
+        {
+          id: "fsr",
+          name: "Field Service Report",
+          done: false,
+          data: ensureFsrDocData({ entries: [] }),
+        },
+        {
+          id: "acceptance-empty",
+          name: ACCEPTANCE_CERT_DOC_NAME,
+          done: false,
+          data: makeEmptyAcceptanceCertificationData(),
+        },
+      ],
+      photos: [],
+    };
+
+    const html = buildReportHtml(report);
+    expect(html).not.toContain(`<div class="section-title">${ACCEPTANCE_CERT_DOC_NAME}</div>`);
+  });
+
+  it("supports legacy acceptance certification document names", () => {
+    const legacyName = ACCEPTANCE_CERT_LEGACY_NAMES[0] || "Acceptance Certification (15710-0017)";
+    const report = {
+      ...baseReportInfo,
+      tripType: "Start Up",
+      sharedSite: {
+        jobName: "Legacy Tower",
+        serialNumberText: "M-2000",
+        siteStreetAddress: "200 State St",
+        siteCity: "Milwaukee",
+        siteState: "WI",
+        siteZip: "53202",
+      },
+      documents: [
+        {
+          id: "acceptance-legacy",
+          name: legacyName,
+          done: false,
+          data: ensureAcceptanceCertificationData({
+            jobName: "Legacy Tower",
+            customerContactName: "Alex Legacy",
+            acceptedByName: "Alex Legacy",
+            operationTestYes: true,
+          }),
+        },
+      ],
+      photos: [],
+    };
+
+    const html = buildReportHtml(report);
+    expect(html).toContain(`<div class="section-title">${ACCEPTANCE_CERT_DOC_NAME}</div>`);
+    expect(html).toContain("Legacy Tower");
+    expect(html).toContain("Alex Legacy");
+  });
+});
+
+describe("makeDocs", () => {
+  it("includes acceptance certification and motor test in Start Up defaults", () => {
+    const docs = makeDocs("Start Up");
+    expect(docs.map((doc) => doc.name)).toEqual([
+      "Field Service Report",
+      "Startup Checklist",
+      ACCEPTANCE_CERT_DOC_NAME,
+      MOTOR_TEST_DOC_NAME,
+      "Service Summary",
+    ]);
+  });
+});
+
+describe("loadReports", () => {
+  const createStorage = (reportsPayload) => {
+    const store = new Map();
+    if (reportsPayload !== undefined) {
+      store.set("fsr.reports", JSON.stringify(reportsPayload));
+    }
+    return {
+      getItem(key) {
+        return store.has(key) ? store.get(key) : null;
+      },
+      setItem(key, value) {
+        store.set(key, String(value));
+      },
+    };
+  };
+
+  it("normalizes legacy document names", () => {
+    const acceptanceLegacy = ACCEPTANCE_CERT_LEGACY_NAMES[0] || "Acceptance Certification (15710-0017)";
+    const motorLegacy = MOTOR_TEST_LEGACY_NAMES[0] || "Motor Test Data Sheet – Frequency Drive";
+
+    const storage = createStorage([
+      {
+        id: "r1",
+        documents: [
+          { id: "d1", name: acceptanceLegacy, done: false, data: { acceptedByName: "Alex" } },
+          { id: "d2", name: motorLegacy, done: false, data: { testedByName: "Morgan" } },
+        ],
+      },
+    ]);
+
+    const reports = loadReports(storage);
+    expect(Array.isArray(reports)).toBe(true);
+    const names = reports[0].documents.map((doc) => doc.name);
+    expect(names).toContain(ACCEPTANCE_CERT_DOC_NAME);
+    expect(names).toContain(MOTOR_TEST_DOC_NAME);
+  });
+
+  it("removes per-document model checkbox data and sets the schema flag", () => {
+    const storage = createStorage([
+      {
+        id: "r1",
+        model: "F",
+        documents: [
+          {
+            id: "service",
+            name: "Service Summary",
+            data: { reasonForVisit: "Fix motor", modelChecks: { B: true }, modelOther: "custom" },
+          },
+          {
+            id: "acceptance",
+            name: ACCEPTANCE_CERT_DOC_NAME,
+            data: { modelChecks: { B: true }, modelOther: "extra", acceptedByName: "Alex" },
+          },
+          {
+            id: "motor",
+            name: MOTOR_TEST_DOC_NAME,
+            data: { modelChecks: { B: true }, modelOther: "extra", testedByName: "Morgan" },
+          },
+        ],
+      },
+    ]);
+
+    const reports = loadReports(storage);
+    const [report] = reports;
+    expect(storage.getItem("fsr.schema.modelUnified")).toBe("true");
+
+    report.documents.forEach((doc) => {
+      expect(doc.data).not.toHaveProperty("modelChecks");
+      expect(doc.data).not.toHaveProperty("modelOther");
+    });
+
+    const persisted = JSON.parse(storage.getItem("fsr.reports"));
+    persisted[0].documents.forEach((doc) => {
+      expect(doc.data).not.toHaveProperty("modelChecks");
+      expect(doc.data).not.toHaveProperty("modelOther");
+    });
+
+    const repeatLoad = loadReports(storage);
+    repeatLoad[0].documents.forEach((doc) => {
+      expect(doc.data).not.toHaveProperty("modelChecks");
+      expect(doc.data).not.toHaveProperty("modelOther");
+    });
   });
 });

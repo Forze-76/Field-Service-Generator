@@ -397,7 +397,260 @@ export const toISOInput = (date) => {
 
 export const MODELS = ["M", "F", "FS", "21", "H", "ZON", "ZONXL", "POD", "SLAM", "Cartveyor"];
 
-export const SS_MODEL_KEYS = ["B", "D", "DB", "F", "M", "MQ", "21", "CV"]; // plus Other text
+export const ACCEPTANCE_CERT_DOC_NAME = "Acceptance Certificate";
+export const ACCEPTANCE_CERT_LEGACY_NAMES = ["Acceptance Certification (15710-0017)"];
+const ACCEPTANCE_CERT_ALL_NAMES = [ACCEPTANCE_CERT_DOC_NAME, ...ACCEPTANCE_CERT_LEGACY_NAMES];
+const ACCEPTANCE_CERT_NAME_SET = new Set(
+  ACCEPTANCE_CERT_ALL_NAMES.map((label) => label.toLowerCase()),
+);
+export const isAcceptanceCertDocName = (name) =>
+  typeof name === "string" && ACCEPTANCE_CERT_NAME_SET.has(name.toLowerCase());
+export const ACCEPTANCE_CERT_MODEL_KEYS = ["B", "D", "DB", "F", "M", "21"];
+
+export const MOTOR_TEST_DOC_NAME = "Motor Test Data";
+export const MOTOR_TEST_LEGACY_NAMES = ["Motor Test Data Sheet – Frequency Drive"];
+const MOTOR_TEST_ALL_NAMES = [MOTOR_TEST_DOC_NAME, ...MOTOR_TEST_LEGACY_NAMES];
+const MOTOR_TEST_NAME_SET = new Set(MOTOR_TEST_ALL_NAMES.map((label) => label.toLowerCase()));
+export const isMotorTestDocName = (name) =>
+  typeof name === "string" && MOTOR_TEST_NAME_SET.has(name.toLowerCase());
+export const MOTOR_TEST_MODEL_KEYS = ["B", "D", "DB", "F", "M", "MQ", "21", "CV"];
+const MOTOR_TEST_VOLT_KEYS = ["l1l2", "l1l3", "l2l3", "l1g", "l2g", "l3g"];
+
+const ensureMotorTestVoltages = (raw = {}) => {
+  const safe = {};
+  MOTOR_TEST_VOLT_KEYS.forEach((key) => {
+    const value = raw && typeof raw[key] === "string" ? raw[key] : "";
+    safe[key] = value;
+  });
+  return safe;
+};
+
+const ensureMotorTestCurrents = (raw = {}) => {
+  const ensureLoad = (load = {}) => ({
+    t1: typeof load.t1 === "string" ? load.t1 : "",
+    t2: typeof load.t2 === "string" ? load.t2 : "",
+    t3: typeof load.t3 === "string" ? load.t3 : "",
+  });
+  const ensurePhase = (phase = {}) => ({
+    unloaded: ensureLoad(phase.unloaded),
+    full: ensureLoad(phase.full),
+  });
+  return {
+    up: ensurePhase(raw.up),
+    down: ensurePhase(raw.down),
+  };
+};
+
+export const ensureMotorTestData = (data) => {
+  const base = typeof data === "object" && data ? data : {};
+  return {
+    jobName: typeof base.jobName === "string" ? base.jobName : "",
+    pflowSerialNumber: typeof base.pflowSerialNumber === "string" ? base.pflowSerialNumber : "",
+    modelNumber: typeof base.modelNumber === "string" ? base.modelNumber : "",
+    siteStreetAddress: typeof base.siteStreetAddress === "string" ? base.siteStreetAddress : "",
+    siteCity: typeof base.siteCity === "string" ? base.siteCity : "",
+    siteState: typeof base.siteState === "string" ? base.siteState : "",
+    siteZip: typeof base.siteZip === "string" ? base.siteZip : "",
+    voltIncoming: ensureMotorTestVoltages(base.voltIncoming),
+    voltAfd: ensureMotorTestVoltages(base.voltAfd),
+    currents: ensureMotorTestCurrents(base.currents),
+    ratedLoad: typeof base.ratedLoad === "string" ? base.ratedLoad : "",
+    testedLoad: typeof base.testedLoad === "string" ? base.testedLoad : "",
+    motor: {
+      manufacturer: typeof base?.motor?.manufacturer === "string" ? base.motor.manufacturer : "",
+      serialNumber: typeof base?.motor?.serialNumber === "string" ? base.motor.serialNumber : "",
+      schematicNumber: typeof base?.motor?.schematicNumber === "string" ? base.motor.schematicNumber : "",
+      hp: typeof base?.motor?.hp === "string" ? base.motor.hp : "",
+      vac: typeof base?.motor?.vac === "string" ? base.motor.vac : "",
+      rpm: typeof base?.motor?.rpm === "string" ? base.motor.rpm : "",
+      fla: typeof base?.motor?.fla === "string" ? base.motor.fla : "",
+    },
+    testedBySignature: typeof base.testedBySignature === "string" ? base.testedBySignature : "",
+    testedByName: typeof base.testedByName === "string" ? base.testedByName : "",
+    testedByTitle: typeof base.testedByTitle === "string" ? base.testedByTitle : "",
+    serviceCompany: typeof base.serviceCompany === "string" ? base.serviceCompany : "",
+    testDate: typeof base.testDate === "string" ? base.testDate : "",
+  };
+};
+
+export const makeEmptyMotorTestData = () => ensureMotorTestData({});
+
+export const motorTestDocHasContent = (data) => {
+  const safe = ensureMotorTestData(data);
+  if (
+    safe.jobName.trim() ||
+    safe.pflowSerialNumber.trim() ||
+    safe.modelNumber.trim() ||
+    safe.siteStreetAddress.trim() ||
+    safe.siteCity.trim() ||
+    safe.siteState.trim() ||
+    safe.siteZip.trim() ||
+    safe.ratedLoad.trim() ||
+    safe.testedLoad.trim() ||
+    safe.testedBySignature.trim() ||
+    safe.testedByName.trim() ||
+    safe.testedByTitle.trim() ||
+    safe.serviceCompany.trim() ||
+    safe.testDate.trim()
+  ) {
+    return true;
+  }
+
+  if (
+    safe.motor.manufacturer.trim() ||
+    safe.motor.serialNumber.trim() ||
+    safe.motor.schematicNumber.trim() ||
+    safe.motor.hp.trim() ||
+    safe.motor.vac.trim() ||
+    safe.motor.rpm.trim() ||
+    safe.motor.fla.trim()
+  ) {
+    return true;
+  }
+
+  if (
+    MOTOR_TEST_VOLT_KEYS.some(
+      (key) => safe.voltIncoming[key]?.trim() || safe.voltAfd[key]?.trim(),
+    )
+  ) {
+    return true;
+  }
+
+  const { currents } = safe;
+  const allCurrents = [
+    currents.up.unloaded.t1,
+    currents.up.unloaded.t2,
+    currents.up.unloaded.t3,
+    currents.up.full.t1,
+    currents.up.full.t2,
+    currents.up.full.t3,
+    currents.down.unloaded.t1,
+    currents.down.unloaded.t2,
+    currents.down.unloaded.t3,
+    currents.down.full.t1,
+    currents.down.full.t2,
+    currents.down.full.t3,
+  ];
+  if (allCurrents.some((value) => (value || "").trim())) {
+    return true;
+  }
+
+  return false;
+};
+
+const ensureAcceptanceCertPersonnel = (raw = {}) => ({
+  name: typeof raw?.name === "string" ? raw.name : "",
+  company: typeof raw?.company === "string" ? raw.company : "",
+});
+
+const ensureAcceptanceCertLoadTest = (raw = {}) => ({
+  yes: !!raw?.yes,
+  percent: typeof raw?.percent === "string" ? raw.percent : "",
+});
+
+const normalizeGateInterlock = (value) => {
+  const safe = typeof value === "string" ? value.toLowerCase() : "";
+  return ["yes", "no", "na"].includes(safe) ? safe : "";
+};
+
+export const ensureAcceptanceCertificationData = (data) => {
+  const base = typeof data === "object" && data ? data : {};
+  return {
+    jobName: typeof base.jobName === "string" ? base.jobName : "",
+    pflowSerialNumber: typeof base.pflowSerialNumber === "string" ? base.pflowSerialNumber : "",
+    modelNumber: typeof base.modelNumber === "string" ? base.modelNumber : "",
+    siteStreetAddress: typeof base.siteStreetAddress === "string" ? base.siteStreetAddress : "",
+    siteMailingAddress: typeof base.siteMailingAddress === "string" ? base.siteMailingAddress : "",
+    siteCity: typeof base.siteCity === "string" ? base.siteCity : "",
+    siteState: typeof base.siteState === "string" ? base.siteState : "",
+    siteZip: typeof base.siteZip === "string" ? base.siteZip : "",
+    customerContactName: typeof base.customerContactName === "string" ? base.customerContactName : "",
+    customerContactTitle: typeof base.customerContactTitle === "string" ? base.customerContactTitle : "",
+    customerContactPhone: typeof base.customerContactPhone === "string" ? base.customerContactPhone : "",
+    customerContactExt: typeof base.customerContactExt === "string" ? base.customerContactExt : "",
+    customerContactEmail: typeof base.customerContactEmail === "string" ? base.customerContactEmail : "",
+    customerCompany: typeof base.customerCompany === "string" ? base.customerCompany : "",
+    loadCapacity: typeof base.loadCapacity === "string" ? base.loadCapacity : "",
+    startupDate: typeof base.startupDate === "string" ? base.startupDate : "",
+    loadTest: ensureAcceptanceCertLoadTest(base.loadTest),
+    operationTestYes: !!base.operationTestYes,
+    operationComments: typeof base.operationComments === "string" ? base.operationComments : "",
+    gateInterlock: normalizeGateInterlock(base.gateInterlock),
+    otherTest1: typeof base.otherTest1 === "string" ? base.otherTest1 : "",
+    otherTest2: typeof base.otherTest2 === "string" ? base.otherTest2 : "",
+    customerInitials: typeof base.customerInitials === "string" ? base.customerInitials : "",
+    instructed1: ensureAcceptanceCertPersonnel(base.instructed1),
+    instructed2: ensureAcceptanceCertPersonnel(base.instructed2),
+    acceptedByName: typeof base.acceptedByName === "string" ? base.acceptedByName : "",
+    acceptedByTitle: typeof base.acceptedByTitle === "string" ? base.acceptedByTitle : "",
+    acceptedByCompany: typeof base.acceptedByCompany === "string" ? base.acceptedByCompany : "",
+    acceptanceDate: typeof base.acceptanceDate === "string" ? base.acceptanceDate : "",
+    pflowRepName: typeof base.pflowRepName === "string" ? base.pflowRepName : "",
+    pflowRepPhone: typeof base.pflowRepPhone === "string" ? base.pflowRepPhone : "",
+    acceptanceNotes: typeof base.acceptanceNotes === "string" ? base.acceptanceNotes : "",
+  };
+};
+
+export const makeEmptyAcceptanceCertificationData = () => ensureAcceptanceCertificationData({});
+
+export const acceptanceCertificationDocHasContent = (data) => {
+  const safe = ensureAcceptanceCertificationData(data);
+  const stringFields = [
+    "jobName",
+    "pflowSerialNumber",
+    "modelNumber",
+    "siteStreetAddress",
+    "siteMailingAddress",
+    "siteCity",
+    "siteState",
+    "siteZip",
+    "customerContactName",
+    "customerContactTitle",
+    "customerContactPhone",
+    "customerContactExt",
+    "customerContactEmail",
+    "customerCompany",
+    "loadCapacity",
+    "startupDate",
+    "operationComments",
+    "otherTest1",
+    "otherTest2",
+    "customerInitials",
+    "acceptedByName",
+    "acceptedByTitle",
+    "acceptedByCompany",
+    "acceptanceDate",
+    "pflowRepName",
+    "pflowRepPhone",
+    "acceptanceNotes",
+  ];
+
+  if (stringFields.some((field) => (safe[field] || "").trim())) {
+    return true;
+  }
+
+  if (safe.loadTest.yes || safe.loadTest.percent.trim()) {
+    return true;
+  }
+
+  if (safe.operationTestYes) {
+    return true;
+  }
+
+  if (safe.gateInterlock) {
+    return true;
+  }
+
+  if (
+    [safe.instructed1, safe.instructed2].some(
+      (person) => person.name.trim() || person.company.trim(),
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+};
 
 const DEFAULT_TRIP_TYPES = ["Service", "Warranty", "Start Up", "Inspection"];
 
@@ -425,11 +678,108 @@ export const saveTypes = (arr, storage) => {
   backing.setItem("fsr.tripTypes", JSON.stringify(arr));
 };
 
+const normalizeReportDocuments = (documents) => {
+  if (!Array.isArray(documents)) return documents;
+  let mutated = false;
+  const next = documents.map((doc) => {
+    if (!doc || typeof doc !== "object") return doc;
+    if (isAcceptanceCertDocName(doc.name) && doc.name !== ACCEPTANCE_CERT_DOC_NAME) {
+      mutated = true;
+      return { ...doc, name: ACCEPTANCE_CERT_DOC_NAME };
+    }
+    if (isMotorTestDocName(doc.name) && doc.name !== MOTOR_TEST_DOC_NAME) {
+      mutated = true;
+      return { ...doc, name: MOTOR_TEST_DOC_NAME };
+    }
+    return doc;
+  });
+  return mutated ? next : documents;
+};
+
+const normalizeReport = (report) => {
+  if (!report || typeof report !== "object") return report;
+  const docs = normalizeReportDocuments(report.documents);
+  if (docs !== report.documents) {
+    return { ...report, documents: docs };
+  }
+  return report;
+};
+
+const normalizeReportsPayload = (payload) => {
+  if (!Array.isArray(payload)) return [];
+  return payload.map((report) => normalizeReport(report));
+};
+
+const MODEL_UNIFIED_SCHEMA_KEY = "fsr.schema.modelUnified";
+
+const shouldStripDocModelFields = (name) => {
+  if (typeof name !== "string") return false;
+  if (name.trim().toLowerCase() === "service summary") return true;
+  if (isAcceptanceCertDocName(name)) return true;
+  if (isMotorTestDocName(name)) return true;
+  return false;
+};
+
+const stripModelFieldsFromDocData = (data) => {
+  if (!data || typeof data !== "object") return data;
+  let mutated = false;
+  const next = { ...data };
+  if (Object.prototype.hasOwnProperty.call(next, "modelChecks")) {
+    delete next.modelChecks;
+    mutated = true;
+  }
+  if (Object.prototype.hasOwnProperty.call(next, "modelOther")) {
+    delete next.modelOther;
+    mutated = true;
+  }
+  return mutated ? next : data;
+};
+
+const migrateReportsToUnifiedModel = (reports) => {
+  if (!Array.isArray(reports)) {
+    return { reports: [], changed: false };
+  }
+
+  let changed = false;
+
+  const migrated = reports.map((report) => {
+    if (!report || typeof report !== "object") return report;
+    if (!Array.isArray(report.documents)) return report;
+
+    let docsChanged = false;
+    const nextDocs = report.documents.map((doc) => {
+      if (!doc || typeof doc !== "object") return doc;
+      if (!shouldStripDocModelFields(doc.name)) return doc;
+      const nextData = stripModelFieldsFromDocData(doc.data);
+      if (nextData === doc.data) return doc;
+      docsChanged = true;
+      return { ...doc, data: nextData };
+    });
+
+    if (!docsChanged) return report;
+    changed = true;
+    return { ...report, documents: nextDocs };
+  });
+
+  return { reports: changed ? migrated : reports, changed };
+};
+
 export const loadReports = (storage) => {
   const backing = resolveStorage(storage);
   try {
     const raw = backing.getItem("fsr.reports");
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    const normalized = normalizeReportsPayload(parsed);
+    if (backing.getItem(MODEL_UNIFIED_SCHEMA_KEY) === "true") {
+      return normalized;
+    }
+    const { reports: migratedReports, changed } = migrateReportsToUnifiedModel(normalized);
+    if (changed) {
+      backing.setItem("fsr.reports", JSON.stringify(migratedReports));
+    }
+    backing.setItem(MODEL_UNIFIED_SCHEMA_KEY, "true");
+    return migratedReports;
   } catch {
     return [];
   }
@@ -508,7 +858,13 @@ const defaultDocsByType = {
   Inspection: ["Field Service Report", "Inspection Sheet", "Service Summary"],
   Warranty: ["Field Service Report", "Service Summary"],
   Service: ["Field Service Report", "Service Summary"],
-  "Start Up": ["Field Service Report", "Startup Checklist", "Service Summary"],
+  "Start Up": [
+    "Field Service Report",
+    "Startup Checklist",
+    ACCEPTANCE_CERT_DOC_NAME,
+    MOTOR_TEST_DOC_NAME,
+    "Service Summary",
+  ],
 };
 
 export const makeDocs = (type) =>
@@ -517,12 +873,14 @@ export const makeDocs = (type) =>
       ? { id: uid(), name: n, done: false, data: makeEmptyFsrDocData() }
       : n === "Service Summary"
       ? { id: uid(), name: n, done: false, data: makeEmptyServiceSummaryData() }
+      : isAcceptanceCertDocName(n)
+      ? { id: uid(), name: ACCEPTANCE_CERT_DOC_NAME, done: false, data: makeEmptyAcceptanceCertificationData() }
+      : isMotorTestDocName(n)
+      ? { id: uid(), name: MOTOR_TEST_DOC_NAME, done: false, data: makeEmptyMotorTestData() }
       : { id: uid(), name: n, done: false, data: {} },
   );
 
 export function makeEmptyServiceSummaryData() {
-  const model = {};
-  SS_MODEL_KEYS.forEach((k) => (model[k] = false));
   return {
     serialNumberText: "",
     reasonForVisit: "",
@@ -539,8 +897,6 @@ export function makeEmptyServiceSummaryData() {
     pmContact: "",
     customerContact: "",
     additionalNotes: "",
-    modelChecks: model,
-    modelOther: "",
     timeLogs: [{ id: uid(), date: "", timeIn: "", timeOut: "", travelTime: "", signature: "" }],
   };
 }
@@ -582,6 +938,347 @@ export function buildReportHtml(report, user) {
     : `<div class="serial"><div><b>Serial Tag</b><div class="note">${
         report.serialTagMissing ? "Not available (checked)" : "Not provided"
       }</div></div></div>`;
+
+  const sharedSite = typeof report.sharedSite === "object" && report.sharedSite ? report.sharedSite : {};
+
+  const acceptanceDoc = (report.documents || []).find((d) => isAcceptanceCertDocName(d?.name));
+  const acceptanceData = ensureAcceptanceCertificationData(acceptanceDoc?.data);
+  const hasAcceptanceData = acceptanceDoc ? acceptanceCertificationDocHasContent(acceptanceDoc.data) : false;
+
+  const motorDoc = (report.documents || []).find((d) => isMotorTestDocName(d?.name));
+  const motorData = motorDoc ? ensureMotorTestData(motorDoc.data) : makeEmptyMotorTestData();
+  const hasMotorData = motorDoc ? motorTestDocHasContent(motorDoc.data) : false;
+
+  const renderMotorVoltageTable = (title, values) => {
+    const cell = (key) => {
+      const raw = values[key] || "";
+      return raw && raw.trim() ? esc(raw) : "&mdash;";
+    };
+    return `
+      <div>
+        <div class="motor-subtitle">${esc(title)}</div>
+        <table class="entry-table motor-table">
+          <thead>
+            <tr><th>L1-L2</th><th>L1-L3</th><th>L2-L3</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>${cell("l1l2")}</td><td>${cell("l1l3")}</td><td>${cell("l2l3")}</td></tr>
+            <tr><th>L1-G</th><th>L2-G</th><th>L3-G</th></tr>
+            <tr><td>${cell("l1g")}</td><td>${cell("l2g")}</td><td>${cell("l3g")}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+  };
+
+  const renderMotorCurrentsTable = (currents) => {
+    const value = (direction, load, key) => {
+      const raw = currents?.[direction]?.[load]?.[key] || "";
+      return raw && raw.trim() ? esc(raw) : "&mdash;";
+    };
+    return `
+      <table class="entry-table motor-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th colspan="3">Unloaded (Amps)</th>
+            <th colspan="3">Full Load (Amps)</th>
+          </tr>
+          <tr>
+            <th></th>
+            <th>T1</th><th>T2</th><th>T3</th>
+            <th>T1</th><th>T2</th><th>T3</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>Up</th>
+            <td>${value("up", "unloaded", "t1")}</td>
+            <td>${value("up", "unloaded", "t2")}</td>
+            <td>${value("up", "unloaded", "t3")}</td>
+            <td>${value("up", "full", "t1")}</td>
+            <td>${value("up", "full", "t2")}</td>
+            <td>${value("up", "full", "t3")}</td>
+          </tr>
+          <tr>
+            <th>Down</th>
+            <td>${value("down", "unloaded", "t1")}</td>
+            <td>${value("down", "unloaded", "t2")}</td>
+            <td>${value("down", "unloaded", "t3")}</td>
+            <td>${value("down", "full", "t1")}</td>
+            <td>${value("down", "full", "t2")}</td>
+            <td>${value("down", "full", "t3")}</td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+  };
+
+  const acceptanceAddressParts = [
+    acceptanceData.siteStreetAddress || sharedSite.siteStreetAddress || "",
+    acceptanceData.siteMailingAddress || sharedSite.siteMailingAddress || "",
+    [acceptanceData.siteCity || sharedSite.siteCity || "", acceptanceData.siteState || sharedSite.siteState || ""]
+      .filter(Boolean)
+      .join(", "),
+    acceptanceData.siteZip || sharedSite.siteZip || "",
+  ]
+    .map((part) => (part || "").trim())
+    .filter(Boolean);
+
+  const acceptanceHeaderSegments = [
+    `Job: ${esc(acceptanceData.jobName || sharedSite.jobName || report.jobNo || "-")}`,
+    `Serial: ${esc(acceptanceData.pflowSerialNumber || sharedSite.serialNumberText || "-")}`,
+    `Model: ${esc(acceptanceData.modelNumber || report.model || "-")}`,
+    `Address: ${esc(acceptanceAddressParts.join(", ") || "-")}`,
+  ];
+
+  const acceptanceModelChecksHTML = `
+    <div class="model-checks">
+      ${ACCEPTANCE_CERT_MODEL_KEYS.map(
+        (key) => `<span class="model-check">${acceptanceData.modelChecks?.[key] ? "☑" : "☐"} ${esc(key)}</span>`,
+      ).join("")}
+      ${
+        acceptanceData.modelOther && acceptanceData.modelOther.trim()
+          ? `<span class="model-check">Other: ${esc(acceptanceData.modelOther)}</span>`
+          : ""
+      }
+    </div>
+  `;
+
+  const acceptanceFmtCell = (value) => {
+    const str = typeof value === "string" ? value.trim() : "";
+    return str ? esc(str) : "&mdash;";
+  };
+
+  const acceptanceFmtMultiline = (value) => {
+    const str = typeof value === "string" ? value.trim() : "";
+    return str ? esc(str).replace(/\n/g, "<br/>") : "&mdash;";
+  };
+
+  const acceptancePhoneCell = (() => {
+    const phone = (acceptanceData.customerContactPhone || "").trim();
+    const ext = (acceptanceData.customerContactExt || "").trim();
+    if (!phone && !ext) return "&mdash;";
+    if (phone && ext) return `${esc(phone)} ext ${esc(ext)}`;
+    if (phone) return esc(phone);
+    return `Ext ${esc(ext)}`;
+  })();
+
+  const acceptanceGateLabel = (() => {
+    if (acceptanceData.gateInterlock === "yes") return "Yes";
+    if (acceptanceData.gateInterlock === "no") return "No";
+    if (acceptanceData.gateInterlock === "na") return "Not Applicable";
+    return "—";
+  })();
+
+  const acceptanceContactHTML = `
+    <table class="entry-table">
+      <tbody>
+        <tr>
+          <th>Customer Contact</th>
+          <td>${acceptanceFmtCell(acceptanceData.customerContactName)}</td>
+          <th>Title</th>
+          <td>${acceptanceFmtCell(acceptanceData.customerContactTitle)}</td>
+        </tr>
+        <tr>
+          <th>Company</th>
+          <td>${acceptanceFmtCell(acceptanceData.customerCompany)}</td>
+          <th>Phone / Ext</th>
+          <td>${acceptancePhoneCell}</td>
+        </tr>
+        <tr>
+          <th>Email</th>
+          <td>${acceptanceFmtCell(acceptanceData.customerContactEmail)}</td>
+          <th>Startup Date</th>
+          <td>${acceptanceFmtCell(acceptanceData.startupDate)}</td>
+        </tr>
+        <tr>
+          <th>Load Capacity</th>
+          <td colspan="3">${acceptanceFmtCell(acceptanceData.loadCapacity)}</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+
+  const acceptanceTestsHTML = `
+    <table class="entry-table">
+      <tbody>
+        <tr>
+          <th>Load Test Completed</th>
+          <td>${acceptanceData.loadTest.yes ? "Yes" : "No"}</td>
+          <th>% of Lift Capacity</th>
+          <td>${acceptanceFmtCell(acceptanceData.loadTest.percent)}</td>
+        </tr>
+        <tr>
+          <th>Operation Test Completed</th>
+          <td>${acceptanceData.operationTestYes ? "Yes" : "No"}</td>
+          <th>Operation Comments</th>
+          <td>${acceptanceFmtMultiline(acceptanceData.operationComments)}</td>
+        </tr>
+        <tr>
+          <th>Gate / Interlock</th>
+          <td>${acceptanceGateLabel}</td>
+          <th>Customer Initials</th>
+          <td>${acceptanceFmtCell(acceptanceData.customerInitials)}</td>
+        </tr>
+        <tr>
+          <th>Other Test 1</th>
+          <td colspan="3">${acceptanceFmtMultiline(acceptanceData.otherTest1)}</td>
+        </tr>
+        <tr>
+          <th>Other Test 2</th>
+          <td colspan="3">${acceptanceFmtMultiline(acceptanceData.otherTest2)}</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+
+  const acceptancePersonnelHTML = `
+    <table class="entry-table">
+      <thead>
+        <tr>
+          <th>Personnel Instructed — Operation &amp; PM</th>
+          <th>Company</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>${acceptanceFmtCell(acceptanceData.instructed1.name)}</td>
+          <td>${acceptanceFmtCell(acceptanceData.instructed1.company)}</td>
+        </tr>
+        <tr>
+          <td>${acceptanceFmtCell(acceptanceData.instructed2.name)}</td>
+          <td>${acceptanceFmtCell(acceptanceData.instructed2.company)}</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+
+  const acceptanceSignoffHTML = `
+    <table class="entry-table">
+      <tbody>
+        <tr>
+          <th>Accepted By</th>
+          <td>${acceptanceFmtCell(acceptanceData.acceptedByName)}</td>
+          <th>Title</th>
+          <td>${acceptanceFmtCell(acceptanceData.acceptedByTitle)}</td>
+        </tr>
+        <tr>
+          <th>Company</th>
+          <td>${acceptanceFmtCell(acceptanceData.acceptedByCompany)}</td>
+          <th>Acceptance Date</th>
+          <td>${acceptanceFmtCell(acceptanceData.acceptanceDate)}</td>
+        </tr>
+        <tr>
+          <th>PFlow Representative</th>
+          <td>${acceptanceFmtCell(acceptanceData.pflowRepName)}</td>
+          <th>Phone</th>
+          <td>${acceptanceFmtCell(acceptanceData.pflowRepPhone)}</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+
+  const acceptanceNotesHTML = acceptanceData.acceptanceNotes.trim()
+    ? `<div class="note">${esc(acceptanceData.acceptanceNotes).replace(/\n/g, "<br/>")}</div>`
+    : "";
+
+  const acceptanceHTML = hasAcceptanceData
+    ? `<div class="section">
+        <div class="section-title">${esc(ACCEPTANCE_CERT_DOC_NAME)}</div>
+        <div class="note">${acceptanceHeaderSegments.join(" • ")}</div>
+        ${acceptanceModelChecksHTML}
+        ${acceptanceContactHTML}
+        ${acceptanceTestsHTML}
+        ${acceptancePersonnelHTML}
+        ${acceptanceSignoffHTML}
+        ${acceptanceNotesHTML}
+      </div>`
+    : "";
+
+  const motorAddressParts = [
+    motorData.siteStreetAddress || sharedSite.siteStreetAddress || "",
+    motorData.siteCity || sharedSite.siteCity || "",
+    motorData.siteState || sharedSite.siteState || "",
+    motorData.siteZip || sharedSite.siteZip || "",
+  ]
+    .map((part) => (part || "").trim())
+    .filter(Boolean);
+
+  const motorHeaderSegments = [
+    `Job: ${esc(motorData.jobName || sharedSite.jobName || report.jobNo || "-")}`,
+    `PFlow Serial Number: ${esc(motorData.pflowSerialNumber || sharedSite.serialNumberText || "-")}`,
+    `Model: ${esc(motorData.modelNumber || report.model || "-")}`,
+    `Address: ${esc(motorAddressParts.join(", ") || "-")}`,
+  ];
+
+  const motorModelsHTML = `
+    <div class="model-checks">
+      ${MOTOR_TEST_MODEL_KEYS.map(
+        (key) => `<span class="model-check">${motorData.modelChecks?.[key] ? "☑" : "☐"} ${esc(key)}</span>`,
+      ).join("")}
+      ${
+        motorData.modelOther && motorData.modelOther.trim()
+          ? `<span class="model-check">Other: ${esc(motorData.modelOther)}</span>`
+          : ""
+      }
+    </div>
+  `;
+
+  const motorLoadsHTML = `
+    <table class="entry-table motor-table">
+      <thead><tr><th>Rated Load</th><th>Tested Load</th></tr></thead>
+      <tbody><tr><td>${motorData.ratedLoad?.trim() ? esc(motorData.ratedLoad) : "&mdash;"}</td><td>${
+        motorData.testedLoad?.trim() ? esc(motorData.testedLoad) : "&mdash;"
+      }</td></tr></tbody>
+    </table>
+  `;
+
+  const motorInfoHTML = `
+    <table class="entry-table motor-table">
+      <thead><tr><th>Manufacturer</th><th>Serial #</th><th>Schematic #</th><th>HP</th><th>VAC</th><th>RPM</th><th>FLA</th></tr></thead>
+      <tbody><tr>
+        <td>${motorData.motor.manufacturer?.trim() ? esc(motorData.motor.manufacturer) : "&mdash;"}</td>
+        <td>${motorData.motor.serialNumber?.trim() ? esc(motorData.motor.serialNumber) : "&mdash;"}</td>
+        <td>${motorData.motor.schematicNumber?.trim() ? esc(motorData.motor.schematicNumber) : "&mdash;"}</td>
+        <td>${motorData.motor.hp?.trim() ? esc(motorData.motor.hp) : "&mdash;"}</td>
+        <td>${motorData.motor.vac?.trim() ? esc(motorData.motor.vac) : "&mdash;"}</td>
+        <td>${motorData.motor.rpm?.trim() ? esc(motorData.motor.rpm) : "&mdash;"}</td>
+        <td>${motorData.motor.fla?.trim() ? esc(motorData.motor.fla) : "&mdash;"}</td>
+      </tr></tbody>
+    </table>
+  `;
+
+  const motorSignoffHTML = `
+    <table class="entry-table motor-table">
+      <thead><tr><th>Signature</th><th>Name (Print)</th><th>Title</th><th>Service Company</th><th>Test Date</th></tr></thead>
+      <tbody><tr>
+        <td>${motorData.testedBySignature?.trim() ? esc(motorData.testedBySignature) : "&mdash;"}</td>
+        <td>${motorData.testedByName?.trim() ? esc(motorData.testedByName) : "&mdash;"}</td>
+        <td>${motorData.testedByTitle?.trim() ? esc(motorData.testedByTitle) : "&mdash;"}</td>
+        <td>${motorData.serviceCompany?.trim() ? esc(motorData.serviceCompany) : "&mdash;"}</td>
+        <td>${motorData.testDate?.trim() ? esc(motorData.testDate) : "&mdash;"}</td>
+      </tr></tbody>
+    </table>
+  `;
+
+  const motorTestHTML = hasMotorData
+    ? `<div class="section">
+        <div class="section-title">${esc(MOTOR_TEST_DOC_NAME)}</div>
+        <div class="note">${motorHeaderSegments.join(" • ")}</div>
+        ${motorModelsHTML}
+        <div class="motor-grid">
+          ${renderMotorVoltageTable("Measured Voltage (Incoming)", motorData.voltIncoming)}
+          ${renderMotorVoltageTable("Measured Voltage (AFD Output)", motorData.voltAfd)}
+        </div>
+        <div class="motor-table-wrap">
+          ${renderMotorCurrentsTable(motorData.currents)}
+        </div>
+        ${motorLoadsHTML}
+        ${motorInfoHTML}
+        ${motorSignoffHTML}
+      </div>`
+    : "";
 
   const fsrDoc = (report.documents || []).find((d) => (d.name || "").toLowerCase() === "field service report");
   const fsrData = ensureFsrDocData(fsrDoc?.data);
@@ -752,6 +1449,13 @@ export function buildReportHtml(report, user) {
     .photo-card { border:1px solid #e5e7eb; border-radius:10px; overflow:hidden; background:#fff; }
     .photo-card img { width:100%; height:auto; display:block; }
     .photo-caption { margin:0; padding:6px 8px; font-size:12px; color:#374151; background:#f9fafb; }
+    .model-checks { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; font-size:13px; }
+    .model-check { display:flex; align-items:center; gap:4px; }
+    .motor-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:12px; }
+    .motor-subtitle { font-weight:600; font-size:13px; margin-bottom:4px; }
+    .motor-table { font-size:13px; }
+    .motor-table th { background:#f9fafb; }
+    .motor-table-wrap { margin-top:12px; }
     .footer { text-align:center; color:#888; font-size: 11px; margin-top: 24px; }
     @media print { body { background: white; } }
   `;
@@ -778,6 +1482,8 @@ export function buildReportHtml(report, user) {
         <div class="note">${docsHTML}</div>
       </div>
 
+      ${acceptanceHTML}
+      ${motorTestHTML}
       ${coreDetailsHTML}
       ${partsInstalledHTML}
       ${partsNeededHTML}

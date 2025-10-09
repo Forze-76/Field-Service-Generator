@@ -13,8 +13,12 @@ import {
   loadReports,
   loadTypes,
   makeDocs,
+  ACCEPTANCE_CERT_DOC_NAME,
+  isAcceptanceCertDocName,
   MODELS,
   moveEntryInFsrData,
+  MOTOR_TEST_DOC_NAME,
+  isMotorTestDocName,
   removeEntryFromFsrData,
   saveReports,
   setEntriesCollapsedState,
@@ -34,6 +38,8 @@ import {
   ServiceSummaryForm,
   StorageMeter,
   UserMenu,
+  MotorTestForm,
+  AcceptanceCertificationForm,
 } from "./components";
 import useModalA11y from "./hooks/useModalA11y";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
@@ -299,6 +305,8 @@ function Workspace({
   const activeDoc = selected?.documents?.find(d=>d.id===activeDocId) || null;
   const hasPhotos = (selected?.photos||[]).length>0;
   const isFsrTabActive = (activeDoc?.name || "").toLowerCase() === "field service report";
+  const isMotorTestDocActive = isMotorTestDocName(activeDoc?.name);
+  const isAcceptanceDocActive = isAcceptanceCertDocName(activeDoc?.name);
 
   const updateFsrData = useCallback(
     (mutator) => {
@@ -627,7 +635,29 @@ function Workspace({
                 </div>
               )}
 
-              {activeDoc && (activeDoc.name||"").toLowerCase()!=='field service report' && (activeDoc.name||"").toLowerCase()!=='service summary' && (
+              {activeDoc && isAcceptanceDocActive && (
+                <div className="rounded-3xl border shadow-sm p-6 bg-white space-y-4">
+                  <h3 className="text-lg font-bold">{ACCEPTANCE_CERT_DOC_NAME}</h3>
+                  <AcceptanceCertificationForm
+                    report={selected}
+                    doc={activeDoc}
+                    onUpdateDoc={handleUpdateActiveDoc}
+                  />
+                </div>
+              )}
+
+              {activeDoc && isMotorTestDocActive && (
+                <div className="rounded-3xl border shadow-sm p-6 bg-white space-y-4">
+                  <h3 className="text-lg font-bold">{MOTOR_TEST_DOC_NAME}</h3>
+                  <MotorTestForm report={selected} doc={activeDoc} onUpdateDoc={handleUpdateActiveDoc} />
+                </div>
+              )}
+
+              {activeDoc &&
+                !isFsrTabActive &&
+                (activeDoc.name || "").toLowerCase() !== "service summary" &&
+                !isMotorTestDocActive &&
+                !isAcceptanceDocActive && (
                 <div className="rounded-3xl border shadow-sm p-6 bg-white">
                   <h3 className="text-lg font-bold">{activeDoc.name}</h3>
                   <p className="text-gray-500 mt-2">This will be a form with questions soon. Use the Docs button near Trip Type to add/remove documents and mark completed.</p>
