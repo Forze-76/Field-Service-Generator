@@ -596,9 +596,7 @@ function Workspace({
                 </div>
               )}
 
-              {!isFsrTabActive && (
-                <SerialTagCard report={selected} onChange={updateReport} />
-              )}
+              <SerialTagCard report={selected} onChange={updateReport} />
 
               {isFsrTabActive && !selected.serialTagImageUrl && !selected.serialTagMissing && (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-700">
@@ -671,44 +669,69 @@ function Workspace({
                 </div>
               )}
 
-              {/* Serial Tag merged with info at bottom for FSR */}
+              {/* Info bar below FSR card */}
               {isFsrTabActive && (
-                <div className="space-y-4">
-                  <SerialTagCard
-                    report={selected}
-                    onChange={updateReport}
-                    headerRight={
-                      <div className="text-sm text-gray-600 flex items-center flex-wrap gap-3">
-                        <div>Job #: <span className="font-semibold text-gray-900">{selected.jobNo}</span></div>
-                        <div>Trip: <span className="font-semibold text-gray-900">{selected.tripType}</span></div>
-                        <div>Model: <span className="font-semibold text-gray-900">{selected.model || '-'}</span></div>
-                        <div className="flex items-center gap-1"><Calendar size={12}/><span className="font-semibold text-gray-900">{formatRange(selected.startAt, selected.endAt)}</span></div>
+                  <div className="rounded-3xl border shadow-sm p-6 bg-white mt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                      <div>
+                        <div className="text-sm text-gray-500">Job #</div>
+                        <div className="font-semibold">{selected.jobNo}</div>
                       </div>
-                    }
-                  />
-                  <div className="rounded-3xl border shadow-sm p-6 bg-white">
-                    <div className="flex items-start gap-2 justify-end flex-wrap">
-                      <button className="px-3 py-2 rounded-xl border flex items-center gap-2 disabled:opacity-40" disabled={fsrIssueEntries.length === 0} onClick={()=>exportReport(selected, currentUser)}>
-                        <FileDown size={18}/> Export Report
-                      </button>
-                      <button className="px-3 py-2 rounded-xl border flex items-center gap-2 disabled:opacity-40" disabled={!hasPhotos} onClick={()=>exportFieldPictures(selected)}>
-                        <FileDown size={18}/> Export Field Pictures
-                      </button>
-                      <button
-                        className="px-3 py-2 rounded-xl border text-red-600 flex items-center gap-2"
-                        onClick={(event)=>{
-                          deleteTriggerRef.current = event.currentTarget;
-                          setDeleteTarget({ id: selected.id, jobNo: selected.jobNo });
-                        }}
-                      >
-                        <Trash size={18}/> Delete
-                      </button>
-                    </div>
-                    <div className="mt-3">
-                      <StorageMeter bytes={reportsSizeBytes} />
+                      <div>
+                        <div className="text-sm text-gray-500 flex items-center gap-2">Trip Type
+                          <button
+                            className="ml-2 px-2 py-1 rounded-lg border text-xs flex items-center gap-1"
+                            onClick={(event)=>{
+                              docsTriggerRef.current = event.currentTarget;
+                              setDocsOpen(true);
+                            }}
+                            title="Edit documents for this job"
+                          >
+                            <Cog size={14}/> Docs
+                          </button>
+                          <button
+                            className="ml-2 px-2 py-1 rounded-lg border text-xs flex items-center gap-1"
+                            onClick={(event)=>{
+                              manualsTriggerRef.current = event.currentTarget;
+                              setManualsOpen(true);
+                            }}
+                            title="Owner's Manuals"
+                          >
+                            <BookOpen size={14}/> Manuals
+                          </button>
+                        </div>
+                        <div className="font-semibold">{selected.tripType}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">Model</div>
+                        <div className="font-semibold">{selected.model || '-'}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">Dates</div>
+                        <div className="font-semibold">{formatRange(selected.startAt, selected.endAt)}</div>
+                      </div>
+                      <div className="flex items-start gap-2 justify-end flex-wrap">
+                        <button className="px-3 py-2 rounded-xl border flex items-center gap-2 disabled:opacity-40" disabled={fsrIssueEntries.length === 0} onClick={()=>exportReport(selected, currentUser)}>
+                          <FileDown size={18}/> Export Report
+                        </button>
+                        <button className="px-3 py-2 rounded-xl border flex items-center gap-2 disabled:opacity-40" disabled={!hasPhotos} onClick={()=>exportFieldPictures(selected)}>
+                          <FileDown size={18}/> Export Field Pictures
+                        </button>
+                        <button
+                          className="px-3 py-2 rounded-xl border text-red-600 flex items-center gap-2"
+                          onClick={(event)=>{
+                            deleteTriggerRef.current = event.currentTarget;
+                            setDeleteTarget({ id: selected.id, jobNo: selected.jobNo });
+                          }}
+                        >
+                          <Trash size={18}/> Delete
+                        </button>
+                      </div>
+                      <div className="md:col-span-5 col-span-1 mt-3">
+                        <StorageMeter bytes={reportsSizeBytes} />
+                      </div>
                     </div>
                   </div>
-                </div>
               )}
 
               <StorageMeter bytes={reportsSizeBytes} className="bg-white/70" />
