@@ -12,3 +12,4 @@ export { default as StorageMeter } from "./StorageMeter.jsx";
 export { default as UserMenu } from "./UserMenu.jsx";
 export { default as MotorTestForm } from "./MotorTestForm.jsx";
 export { default as AcceptanceCertificationForm } from "./AcceptanceCertificationForm.jsx";
+export { default as ReportHeaderBar } from "./ReportHeaderBar.jsx";
