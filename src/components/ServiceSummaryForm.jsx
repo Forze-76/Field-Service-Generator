@@ -1,5 +1,5 @@
 import React, { useCallback } from "react";
-import { makeEmptyServiceSummaryData, SS_MODEL_KEYS, uid } from "../utils/fsr";
+import { makeEmptyServiceSummaryData, uid } from "../utils/fsr";
 
 function TinyLabel({ children }) {
   return <div className="text-[11px] text-gray-600 mb-1">{children}</div>;
@@ -13,12 +13,13 @@ function TinyTextArea(props) {
   return <textarea {...props} className={(props.className || "") + " w-full rounded-lg border px-2 py-1 text-[13px] min-h-[80px]"} />;
 }
 
-function TinyCheck({ checked, onChange, label }) {
+function ModelBadge({ value }) {
+  const display = typeof value === "string" && value.trim() ? value.trim() : "-";
   return (
-    <label className="flex items-center gap-2 text-[13px] mr-3">
-      <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)} />
-      <span>{label}</span>
-    </label>
+    <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[12px] text-gray-700">
+      <span className="uppercase tracking-wide text-[11px] text-gray-500">Model:</span>
+      <span className="font-medium text-gray-900">{display}</span>
+    </div>
   );
 }
 
@@ -80,8 +81,6 @@ function ServiceSummaryForm({ report, doc, onUpdateReport, onUpdateDoc }) {
     [onUpdateReport, shared],
   );
 
-  const toggleModel = useCallback((k, v) => setData({ modelChecks: { ...data.modelChecks, [k]: v } }), [setData, data.modelChecks]);
-
   const addRow = useCallback(() => {
     if ((data.timeLogs || []).length >= 7) return;
     setData({
@@ -105,17 +104,7 @@ function ServiceSummaryForm({ report, doc, onUpdateReport, onUpdateDoc }) {
           />
         </div>
         <div>
-          <TinyLabel>Model classification (form checkboxes)</TinyLabel>
-          <div className="flex flex-wrap gap-2">
-            {SS_MODEL_KEYS.map((k) => (
-              <TinyCheck key={k} checked={!!data.modelChecks[k]} onChange={(v) => toggleModel(k, v)} label={k} />
-            ))}
-            <div className="flex items-center gap-2">
-              <span className="text-[13px]">Other</span>
-              <TinyInput value={data.modelOther} onChange={(e) => setData({ modelOther: e.target.value })} className="w-28" />
-            </div>
-          </div>
-          <div className="text-[11px] text-gray-500 mt-1">Report model: <b>{report.model || "-"}</b></div>
+          <ModelBadge value={report?.model} />
         </div>
       </div>
 
