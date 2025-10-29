@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import { ACCEPTANCE_CERT_DOC_NAME, ensureAcceptanceCertificationData, makeEmptyAcceptanceCertificationData } from "../utils/fsr";
 
 function TinyLabel({ children }) {
@@ -30,31 +30,12 @@ function TinyOptionButton({ label, active, onClick }) {
   );
 }
 
-function SummaryField({ label, value }) {
-  return (
-    <div>
-      <TinyLabel>{label}</TinyLabel>
-      <div className="rounded-lg border px-3 py-2 text-[13px] bg-gray-50">{value || "—"}</div>
-    </div>
-  );
-}
-
-function ModelBadge({ value }) {
-  const display = typeof value === "string" && value.trim() ? value.trim() : "-";
-  return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[12px] text-gray-700">
-      <span className="uppercase tracking-wide text-[11px] text-gray-500">Model:</span>
-      <span className="font-medium text-gray-900">{display}</span>
-    </div>
-  );
-}
+//
 
 function AcceptanceCertificationForm({
-  report = { sharedSite: {} },
   doc = { data: makeEmptyAcceptanceCertificationData(), name: ACCEPTANCE_CERT_DOC_NAME },
   onUpdateDoc = () => {},
 }) {
-  const shared = report.sharedSite || {};
   const data = useMemo(() => ensureAcceptanceCertificationData(doc?.data), [doc?.data]);
 
   const updateData = useCallback(
@@ -65,38 +46,7 @@ function AcceptanceCertificationForm({
     [doc, data, onUpdateDoc],
   );
 
-  useEffect(() => {
-    const patch = {};
-    if (!data.jobName && shared.jobName) patch.jobName = shared.jobName;
-    if (!data.pflowSerialNumber && shared.serialNumberText) patch.pflowSerialNumber = shared.serialNumberText;
-    if (!data.modelNumber && report.model) patch.modelNumber = report.model;
-    if (!data.siteStreetAddress && shared.siteStreetAddress) patch.siteStreetAddress = shared.siteStreetAddress;
-    if (!data.siteMailingAddress && shared.siteMailingAddress) patch.siteMailingAddress = shared.siteMailingAddress;
-    if (!data.siteCity && shared.siteCity) patch.siteCity = shared.siteCity;
-    if (!data.siteState && shared.siteState) patch.siteState = shared.siteState;
-    if (!data.siteZip && shared.siteZip) patch.siteZip = shared.siteZip;
-    if (Object.keys(patch).length) {
-      updateData((prev) => ({ ...prev, ...patch }));
-    }
-  }, [
-    data.jobName,
-    data.modelNumber,
-    data.pflowSerialNumber,
-    data.siteCity,
-    data.siteMailingAddress,
-    data.siteState,
-    data.siteStreetAddress,
-    data.siteZip,
-    report.model,
-    shared.jobName,
-    shared.serialNumberText,
-    shared.siteCity,
-    shared.siteMailingAddress,
-    shared.siteState,
-    shared.siteStreetAddress,
-    shared.siteZip,
-    updateData,
-  ]);
+  // Meta fields (job/model/serial/address) are edited only in Service Summary.
 
   const updateLoadTest = useCallback(
     (patch) => {
@@ -118,27 +68,11 @@ function AcceptanceCertificationForm({
     [updateData],
   );
 
-  const summaryStreet = data.siteStreetAddress || shared.siteStreetAddress || "";
-  const summaryMailing = data.siteMailingAddress || shared.siteMailingAddress || "";
-  const summaryCity = data.siteCity || shared.siteCity || "";
-  const summaryState = data.siteState || shared.siteState || "";
-  const summaryZip = data.siteZip || shared.siteZip || "";
+  // No local site/address summary in this editor
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <SummaryField label="Job Name" value={data.jobName || shared.jobName} />
-        <SummaryField label="PFlow Serial Number" value={data.pflowSerialNumber || shared.serialNumberText} />
-        <SummaryField label="Model" value={data.modelNumber || report.model} />
-        <SummaryField label="Site Street Address" value={summaryStreet} />
-        <SummaryField label="Mailing Address" value={summaryMailing} />
-        <SummaryField
-          label="City / State / ZIP"
-          value={[summaryCity, summaryState, summaryZip].filter(Boolean).join(", ")}
-        />
-      </div>
-
-      <ModelBadge value={report?.model} />
+      {/* Meta fields (Job/Serial/Model/Address) removed from this editor */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>

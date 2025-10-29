@@ -13,15 +13,7 @@ function TinyTextArea(props) {
   return <textarea {...props} className={(props.className || "") + " w-full rounded-lg border px-2 py-1 text-[13px] min-h-[80px]"} />;
 }
 
-function ModelBadge({ value }) {
-  const display = typeof value === "string" && value.trim() ? value.trim() : "-";
-  return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[12px] text-gray-700">
-      <span className="uppercase tracking-wide text-[11px] text-gray-500">Model:</span>
-      <span className="font-medium text-gray-900">{display}</span>
-    </div>
-  );
-}
+// Model badge removed from UI per requirements
 
 function SharedSiteBlock({ shared, onChange }) {
   return (
@@ -92,86 +84,6 @@ function ServiceSummaryForm({ report, doc, onUpdateReport, onUpdateDoc }) {
   return (
     <div className="space-y-6">
       <SharedSiteBlock shared={shared} onChange={setShared} />
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <TinyLabel>Reason for visit</TinyLabel>
-          <TinyTextArea
-            value={data.reasonForVisit}
-            onChange={(e) => setData({ reasonForVisit: e.target.value })}
-            aria-label="Reason for visit"
-            name="reasonForVisit"
-          />
-        </div>
-        <div>
-          <ModelBadge value={report?.model} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <TinyLabel>Service performed</TinyLabel>
-          <TinyTextArea value={data.servicePerformed} onChange={(e) => setData({ servicePerformed: e.target.value })} />
-        </div>
-        <div>
-          <TinyLabel>Parts replaced</TinyLabel>
-          <TinyTextArea value={data.partsReplaced} onChange={(e) => setData({ partsReplaced: e.target.value })} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <TinyLabel>Supervisor Name / E-mail</TinyLabel>
-          <TinyInput value={data.supervisorNameEmail} onChange={(e) => setData({ supervisorNameEmail: e.target.value })} />
-        </div>
-        <div>
-          <TinyLabel>Acceptance date</TinyLabel>
-          <TinyInput type="date" value={data.acceptanceDate} onChange={(e) => setData({ acceptanceDate: e.target.value })} />
-        </div>
-        <div>
-          <TinyLabel>Supervisor Signature</TinyLabel>
-          <TinyInput
-            value={data.supervisorSignature}
-            onChange={(e) => setData({ supervisorSignature: e.target.value })}
-            placeholder="(name or initials)"
-          />
-        </div>
-        <div>
-          <TinyLabel>PFlow Service Technician</TinyLabel>
-          <TinyInput value={data.pflowServiceTechnician} onChange={(e) => setData({ pflowServiceTechnician: e.target.value })} />
-        </div>
-        <div>
-          <TinyLabel>Manager Name / E-mail</TinyLabel>
-          <TinyInput value={data.managerNameEmail} onChange={(e) => setData({ managerNameEmail: e.target.value })} />
-        </div>
-        <div>
-          <TinyLabel>Manager Signature</TinyLabel>
-          <TinyInput
-            value={data.managerSignature}
-            onChange={(e) => setData({ managerSignature: e.target.value })}
-            placeholder="(name or initials)"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <TinyLabel>PM Contact</TinyLabel>
-          <TinyInput value={data.pmContact} onChange={(e) => setData({ pmContact: e.target.value })} />
-        </div>
-        <div>
-          <TinyLabel>Customer Contact</TinyLabel>
-          <TinyInput value={data.customerContact} onChange={(e) => setData({ customerContact: e.target.value })} />
-        </div>
-        <div>
-          <TinyLabel>Tech 1</TinyLabel>
-          <TinyInput value={data.tech1} onChange={(e) => setData({ tech1: e.target.value })} />
-        </div>
-        <div>
-          <TinyLabel>Tech 2</TinyLabel>
-          <TinyInput value={data.tech2} onChange={(e) => setData({ tech2: e.target.value })} />
-        </div>
-      </div>
 
       <div>
         <div className="flex items-center justify-between mb-2">
@@ -246,6 +158,66 @@ function ServiceSummaryForm({ report, doc, onUpdateReport, onUpdateDoc }) {
           ))}
         </div>
       </div>
+
+      {/* Removed Reason for visit and Model indicator */}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <TinyLabel>Service performed</TinyLabel>
+          <TinyTextArea value={data.servicePerformed} onChange={(e) => setData({ servicePerformed: e.target.value })} />
+        </div>
+        <div className="flex items-end justify-end">
+          <button type="button" className="px-2 py-1 rounded-lg border text-[13px]" onClick={() => {}}>
+            Preview Document
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <TinyLabel>Supervisor Name / E-mail</TinyLabel>
+          <TinyInput value={data.supervisorNameEmail} onChange={(e) => setData({ supervisorNameEmail: e.target.value })} />
+        </div>
+        <div>
+          <TinyLabel>Supervisor Signature</TinyLabel>
+          <TinyInput
+            value={data.supervisorSignature}
+            onChange={(e) => setData({ supervisorSignature: e.target.value })}
+            placeholder="(name or initials)"
+          />
+        </div>
+        {/* Removed PFlow Service Technician */}
+        <div>
+          <TinyLabel>Manager Name / E-mail</TinyLabel>
+          <TinyInput value={data.managerNameEmail} onChange={(e) => setData({ managerNameEmail: e.target.value })} />
+        </div>
+        <div>
+          <TinyLabel>Manager Signature</TinyLabel>
+          <TinyInput
+            value={data.managerSignature}
+            onChange={(e) => setData({ managerSignature: e.target.value })}
+            placeholder="(name or initials)"
+          />
+        </div>
+        <div></div>
+        <div>
+          <TinyLabel>Acceptance date</TinyLabel>
+          <TinyInput type="date" value={data.acceptanceDate} onChange={(e) => setData({ acceptanceDate: e.target.value })} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <TinyLabel>PM Contact</TinyLabel>
+          <TinyInput value={data.pmContact} onChange={(e) => setData({ pmContact: e.target.value })} />
+        </div>
+        <div>
+          <TinyLabel>Customer Contact</TinyLabel>
+          <TinyInput value={data.customerContact} onChange={(e) => setData({ customerContact: e.target.value })} />
+        </div>
+      </div>
+
+      
 
       <div>
         <TinyLabel>Additional notes</TinyLabel>

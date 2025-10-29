@@ -144,10 +144,12 @@ describe("focus stability", () => {
     const controls = {};
     render(<FocusHarness expose={(api) => Object.assign(controls, api)} />);
 
-    const reasonTextarea = screen.getByLabelText("Reason for visit");
-    await user.type(reasonTextarea, "abc");
-    expect(reasonTextarea).toHaveValue("abc");
-    expect(document.activeElement).toBe(reasonTextarea);
+    const serviceLabel = screen.getByText(/Service performed/i);
+    const serviceContainer = serviceLabel.parentElement?.parentElement || serviceLabel.parentElement;
+    const serviceTextarea = serviceContainer.querySelector('textarea');
+    await user.type(serviceTextarea, "abc");
+    expect(serviceTextarea).toHaveValue("abc");
+    expect(document.activeElement).toBe(serviceTextarea);
 
     const issueTextarea = screen.getByPlaceholderText(/what happened/i);
     await user.type(issueTextarea, "abc");
