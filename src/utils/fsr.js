@@ -711,6 +711,8 @@ const normalizeReportsPayload = (payload) => {
 };
 
 const MODEL_UNIFIED_SCHEMA_KEY = "fsr.schema.modelUnified";
+const META_PRUNED_SCHEMA_KEY = "fsr.schema.metaPruned";
+const SS_PRUNED_SCHEMA_KEY = "fsr.schema.serviceSummary.prunedV1";
 
 const shouldStripDocModelFields = (name) => {
   if (typeof name !== "string") return false;
@@ -764,6 +766,64 @@ const migrateReportsToUnifiedModel = (reports) => {
   return { reports: changed ? migrated : reports, changed };
 };
 
+// Prune meta fields from Acceptance & Motor Test docs so Service Summary owns them
+const shouldPruneDocMeta = (name) => {
+  if (typeof name !== "string") return false;
+  if (isAcceptanceCertDocName(name)) return true;
+  if (isMotorTestDocName(name)) return true;
+  return false;
+};
+
+const pruneMetaFromDocData = (data) => {
+  if (!data || typeof data !== "object") return data;
+  const next = { ...data };
+  let mutated = false;
+  const keys = [
+    "jobName",
+    "serialNumberText", // legacy stray key in some seeds
+    "pflowSerialNumber",
+    "modelNumber",
+    "modelChecks",
+    "modelOther",
+    "siteStreetAddress",
+    "siteMailingAddress",
+    "siteCity",
+    "siteState",
+    "siteZip",
+  ];
+  keys.forEach((k) => {
+    if (Object.prototype.hasOwnProperty.call(next, k)) {
+      delete next[k];
+      mutated = true;
+    }
+  });
+  return mutated ? next : data;
+};
+
+const migrateReportsPruneMeta = (reports) => {
+  if (!Array.isArray(reports)) {
+    return { reports: [], changed: false };
+  }
+  let changed = false;
+  const migrated = reports.map((report) => {
+    if (!report || typeof report !== "object") return report;
+    if (!Array.isArray(report.documents)) return report;
+    let docsChanged = false;
+    const nextDocs = report.documents.map((doc) => {
+      if (!doc || typeof doc !== "object") return doc;
+      if (!shouldPruneDocMeta(doc.name)) return doc;
+      const nextData = pruneMetaFromDocData(doc.data);
+      if (nextData === doc.data) return doc;
+      docsChanged = true;
+      return { ...doc, data: nextData };
+    });
+    if (!docsChanged) return report;
+    changed = true;
+    return { ...report, documents: nextDocs };
+  });
+  return { reports: changed ? migrated : reports, changed };
+};
+
 export const loadReports = (storage) => {
   const backing = resolveStorage(storage);
   try {
@@ -771,15 +831,38 @@ export const loadReports = (storage) => {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     const normalized = normalizeReportsPayload(parsed);
-    if (backing.getItem(MODEL_UNIFIED_SCHEMA_KEY) === "true") {
-      return normalized;
+    // Migration 1: remove legacy per-doc model checkbox data
+    let reportsWorking = normalized;
+    if (backing.getItem(MODEL_UNIFIED_SCHEMA_KEY) !== "true") {
+      const { reports: migratedReports, changed } = migrateReportsToUnifiedModel(normalized);
+      if (changed) {
+        backing.setItem("fsr.reports", JSON.stringify(migratedReports));
+      }
+      backing.setItem(MODEL_UNIFIED_SCHEMA_KEY, "true");
+      reportsWorking = migratedReports;
     }
-    const { reports: migratedReports, changed } = migrateReportsToUnifiedModel(normalized);
-    if (changed) {
-      backing.setItem("fsr.reports", JSON.stringify(migratedReports));
+
+    // Migration 2: prune meta fields from Acceptance & Motor Test docs
+    if (backing.getItem(META_PRUNED_SCHEMA_KEY) !== "true") {
+      const { reports: pruned, changed: prunedChanged } = migrateReportsPruneMeta(reportsWorking);
+      if (prunedChanged) {
+        backing.setItem("fsr.reports", JSON.stringify(pruned));
+      }
+      backing.setItem(META_PRUNED_SCHEMA_KEY, "true");
+      reportsWorking = pruned;
     }
-    backing.setItem(MODEL_UNIFIED_SCHEMA_KEY, "true");
-    return migratedReports;
+
+    // Migration 3: prune removed fields from Service Summary docs (idempotent)
+    if (backing.getItem(SS_PRUNED_SCHEMA_KEY) !== "true") {
+      const { reports: prunedSS, changed: ssChanged } = migrateReportsPruneServiceSummary(reportsWorking);
+      if (ssChanged) {
+        backing.setItem("fsr.reports", JSON.stringify(prunedSS));
+      }
+      backing.setItem(SS_PRUNED_SCHEMA_KEY, "true");
+      return prunedSS;
+    }
+
+    return reportsWorking;
   } catch {
     return [];
   }
@@ -883,15 +966,12 @@ export const makeDocs = (type) =>
 export function makeEmptyServiceSummaryData() {
   return {
     serialNumberText: "",
-    reasonForVisit: "",
     servicePerformed: "",
-    partsReplaced: "",
     supervisorNameEmail: "",
     acceptanceDate: "",
     supervisorSignature: "",
     managerNameEmail: "",
     managerSignature: "",
-    pflowServiceTechnician: "",
     tech1: "",
     tech2: "",
     pmContact: "",
@@ -900,6 +980,49 @@ export function makeEmptyServiceSummaryData() {
     timeLogs: [{ id: uid(), date: "", timeIn: "", timeOut: "", travelTime: "", signature: "" }],
   };
 }
+
+// Service Summary prune: remove keys no longer present in UI
+const shouldPruneServiceSummary = (name) => {
+  if (typeof name !== "string") return false;
+  return name.trim().toLowerCase() === "service summary";
+};
+
+const pruneServiceSummaryDocData = (data) => {
+  if (!data || typeof data !== "object") return data;
+  const next = { ...data };
+  let mutated = false;
+  ["reasonForVisit", "partsReplaced", "pflowServiceTechnician"].forEach((k) => {
+    if (Object.prototype.hasOwnProperty.call(next, k)) {
+      delete next[k];
+      mutated = true;
+    }
+  });
+  return mutated ? next : data;
+};
+
+const migrateReportsPruneServiceSummary = (reports) => {
+  if (!Array.isArray(reports)) {
+    return { reports: [], changed: false };
+  }
+  let changed = false;
+  const migrated = reports.map((report) => {
+    if (!report || typeof report !== "object") return report;
+    if (!Array.isArray(report.documents)) return report;
+    let docsChanged = false;
+    const nextDocs = report.documents.map((doc) => {
+      if (!doc || typeof doc !== "object") return doc;
+      if (!shouldPruneServiceSummary(doc.name)) return doc;
+      const nextData = pruneServiceSummaryDocData(doc.data);
+      if (nextData === doc.data) return doc;
+      docsChanged = true;
+      return { ...doc, data: nextData };
+    });
+    if (!docsChanged) return report;
+    changed = true;
+    return { ...report, documents: nextDocs };
+  });
+  return { reports: changed ? migrated : reports, changed };
+};
 
 const escAttr = (value = "") =>
   String(value)

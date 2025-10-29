@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import { ensureMotorTestData, makeEmptyMotorTestData, MOTOR_TEST_DOC_NAME } from "../utils/fsr";
 
 function TinyLabel({ children }) {
@@ -10,15 +10,7 @@ function TinyInput(props) {
   return <input {...rest} className={`w-full rounded-lg border px-2 py-1 text-[13px] ${className}`} />;
 }
 
-function ModelBadge({ value }) {
-  const display = typeof value === "string" && value.trim() ? value.trim() : "-";
-  return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[12px] text-gray-700">
-      <span className="uppercase tracking-wide text-[11px] text-gray-500">Model:</span>
-      <span className="font-medium text-gray-900">{display}</span>
-    </div>
-  );
-}
+//
 
 const VOLT_LINE_KEYS = [
   { key: "l1l2", label: "L1-L2" },
@@ -35,11 +27,9 @@ const VOLT_GROUND_KEYS = [
 const CURRENT_KEYS = ["t1", "t2", "t3"];
 
 function MotorTestForm({
-  report = { sharedSite: {} },
   doc = { data: makeEmptyMotorTestData(), name: MOTOR_TEST_DOC_NAME },
   onUpdateDoc = () => {},
 }) {
-  const shared = report.sharedSite || {};
   const data = useMemo(() => ensureMotorTestData(doc?.data), [doc?.data]);
 
   const updateData = useCallback(
@@ -50,35 +40,7 @@ function MotorTestForm({
     [doc, data, onUpdateDoc],
   );
 
-  useEffect(() => {
-    const patch = {};
-    if (!data.jobName && shared.jobName) patch.jobName = shared.jobName;
-    if (!data.pflowSerialNumber && shared.serialNumberText) patch.pflowSerialNumber = shared.serialNumberText;
-    if (!data.modelNumber && report.model) patch.modelNumber = report.model;
-    if (!data.siteStreetAddress && shared.siteStreetAddress) patch.siteStreetAddress = shared.siteStreetAddress;
-    if (!data.siteCity && shared.siteCity) patch.siteCity = shared.siteCity;
-    if (!data.siteState && shared.siteState) patch.siteState = shared.siteState;
-    if (!data.siteZip && shared.siteZip) patch.siteZip = shared.siteZip;
-    if (Object.keys(patch).length) {
-      updateData((prev) => ({ ...prev, ...patch }));
-    }
-  }, [
-    data.jobName,
-    data.modelNumber,
-    data.pflowSerialNumber,
-    data.siteCity,
-    data.siteState,
-    data.siteStreetAddress,
-    data.siteZip,
-    report.model,
-    shared.jobName,
-    shared.serialNumberText,
-    shared.siteCity,
-    shared.siteState,
-    shared.siteStreetAddress,
-    shared.siteZip,
-    updateData,
-  ]);
+  // Meta fields (job/model/serial/address) are edited only in Service Summary.
 
   const setVoltage = useCallback(
     (segment, key, value) => {
@@ -173,61 +135,7 @@ function MotorTestForm({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <TinyLabel>Job Name</TinyLabel>
-          <div className="rounded-lg border px-3 py-2 text-[13px] bg-gray-50">{data.jobName || "—"}</div>
-        </div>
-        <div>
-          <TinyLabel>PFlow Serial Number</TinyLabel>
-          <div className="rounded-lg border px-3 py-2 text-[13px] bg-gray-50">{data.pflowSerialNumber || "—"}</div>
-        </div>
-        <div>
-          <TinyLabel>Model</TinyLabel>
-          <div className="rounded-lg border px-3 py-2 text-[13px] bg-gray-50">{data.modelNumber || report.model || "—"}</div>
-        </div>
-        <div>
-          <TinyLabel>Site Street Address</TinyLabel>
-          <TinyInput
-            value={data.siteStreetAddress}
-            onChange={(event) => updateData({ siteStreetAddress: event.target.value })}
-            placeholder="Street"
-            aria-label="Site street address"
-          />
-        </div>
-        <div>
-          <TinyLabel>City</TinyLabel>
-          <TinyInput
-            value={data.siteCity}
-            onChange={(event) => updateData({ siteCity: event.target.value })}
-            placeholder="City"
-            aria-label="Site city"
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <TinyLabel>State</TinyLabel>
-            <TinyInput
-              value={data.siteState}
-              onChange={(event) => updateData({ siteState: event.target.value })}
-              placeholder="State"
-              aria-label="Site state"
-            />
-          </div>
-          <div>
-            <TinyLabel>Zip</TinyLabel>
-            <TinyInput
-              value={data.siteZip}
-              onChange={(event) => updateData({ siteZip: event.target.value })}
-              placeholder="Zip"
-              aria-label="Site zip code"
-              inputMode="numeric"
-            />
-          </div>
-        </div>
-      </div>
-
-      <ModelBadge value={report?.model} />
+      {/* Meta fields (Job/Serial/Model/Address) removed from this editor */}
 
       <div>
         <TinyLabel>Measured Voltage</TinyLabel>

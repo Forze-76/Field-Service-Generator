@@ -516,4 +516,164 @@ describe("loadReports", () => {
       expect(doc.data).not.toHaveProperty("modelOther");
     });
   });
+
+  it("prunes meta keys from acceptance and motor docs and sets the flag (idempotent)", () => {
+    const storage = createStorage([
+      {
+        id: "r1",
+        model: "F",
+        sharedSite: {
+          jobName: "Shared Job",
+          serialNumberText: "SH-001",
+          siteStreetAddress: "1 Shared St",
+          siteMailingAddress: "PO Shared",
+          siteCity: "Shared City",
+          siteState: "WI",
+          siteZip: "53202",
+        },
+        documents: [
+          {
+            id: "acceptance",
+            name: ACCEPTANCE_CERT_DOC_NAME,
+            data: {
+              jobName: "Local Job",
+              pflowSerialNumber: "LOC-123",
+              serialNumberText: "legacy",
+              modelNumber: "M",
+              modelChecks: { B: true },
+              modelOther: "x",
+              siteStreetAddress: "100 Main",
+              siteMailingAddress: "PO 100",
+              siteCity: "Milwaukee",
+              siteState: "WI",
+              siteZip: "53202",
+              acceptedByName: "Alex",
+            },
+          },
+          {
+            id: "motor",
+            name: MOTOR_TEST_DOC_NAME,
+            data: {
+              jobName: "Local Job",
+              pflowSerialNumber: "M-123",
+              serialNumberText: "legacy",
+              modelNumber: "F",
+              modelChecks: { F: true },
+              modelOther: "y",
+              siteStreetAddress: "200 Oak",
+              siteCity: "Chicago",
+              siteState: "IL",
+              siteZip: "60601",
+              testedByName: "Morgan",
+            },
+          },
+        ],
+      },
+    ]);
+
+    const reports = loadReports(storage);
+    const [report] = reports;
+    expect(storage.getItem("fsr.schema.metaPruned")).toBe("true");
+
+    report.documents.forEach((doc) => {
+      if ([ACCEPTANCE_CERT_DOC_NAME, MOTOR_TEST_DOC_NAME].includes(doc.name)) {
+        // keys should be pruned
+        [
+          "jobName",
+          "serialNumberText",
+          "pflowSerialNumber",
+          "modelNumber",
+          "modelChecks",
+          "modelOther",
+          "siteStreetAddress",
+          "siteMailingAddress",
+          "siteCity",
+          "siteState",
+          "siteZip",
+        ].forEach((k) => expect(doc.data).not.toHaveProperty(k));
+      }
+    });
+
+    const persisted = JSON.parse(storage.getItem("fsr.reports"));
+    persisted[0].documents.forEach((doc) => {
+      if ([ACCEPTANCE_CERT_DOC_NAME, MOTOR_TEST_DOC_NAME].includes(doc.name)) {
+        [
+          "jobName",
+          "serialNumberText",
+          "pflowSerialNumber",
+          "modelNumber",
+          "modelChecks",
+          "modelOther",
+          "siteStreetAddress",
+          "siteMailingAddress",
+          "siteCity",
+          "siteState",
+          "siteZip",
+        ].forEach((k) => expect(doc.data).not.toHaveProperty(k));
+      }
+    });
+
+    const repeatLoad = loadReports(storage);
+    repeatLoad[0].documents.forEach((doc) => {
+      if ([ACCEPTANCE_CERT_DOC_NAME, MOTOR_TEST_DOC_NAME].includes(doc.name)) {
+        [
+          "jobName",
+          "serialNumberText",
+          "pflowSerialNumber",
+          "modelNumber",
+          "modelChecks",
+          "modelOther",
+          "siteStreetAddress",
+          "siteMailingAddress",
+          "siteCity",
+          "siteState",
+          "siteZip",
+        ].forEach((k) => expect(doc.data).not.toHaveProperty(k));
+      }
+    });
+  });
+
+  it("prunes removed Service Summary keys and sets the flag (idempotent)", () => {
+    const storage = createStorage([
+      {
+        id: "r1",
+        model: "F",
+        documents: [
+          {
+            id: "service",
+            name: "Service Summary",
+            data: {
+              reasonForVisit: "Old reason",
+              servicePerformed: "Did work",
+              partsReplaced: "Old parts",
+              pflowServiceTechnician: "Name",
+            },
+          },
+        ],
+      },
+    ]);
+
+    const reports = loadReports(storage);
+    const [report] = reports;
+    expect(storage.getItem("fsr.schema.serviceSummary.prunedV1")).toBe("true");
+
+    const serviceDoc = report.documents.find((d) => d.name === "Service Summary");
+    expect(serviceDoc).toBeTruthy();
+    ["reasonForVisit", "partsReplaced", "pflowServiceTechnician"].forEach((k) => {
+      expect(serviceDoc.data).not.toHaveProperty(k);
+    });
+    expect(serviceDoc.data.servicePerformed).toBe("Did work");
+
+    const persisted = JSON.parse(storage.getItem("fsr.reports"));
+    const pServiceDoc = persisted[0].documents.find((d) => d.name === "Service Summary");
+    ["reasonForVisit", "partsReplaced", "pflowServiceTechnician"].forEach((k) => {
+      expect(pServiceDoc.data).not.toHaveProperty(k);
+    });
+
+    const repeat = loadReports(storage);
+    const rServiceDoc = repeat[0].documents.find((d) => d.name === "Service Summary");
+    ["reasonForVisit", "partsReplaced", "pflowServiceTechnician"].forEach((k) => {
+      expect(rServiceDoc.data).not.toHaveProperty(k);
+    });
+  });
 });

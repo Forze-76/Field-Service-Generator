@@ -33,15 +33,18 @@ function renderAcceptanceForm({ model = "B" } = {}) {
 }
 
 describe("AcceptanceCertificationForm", () => {
-  it("prefills shared values, renders the model badge, and saves edits", async () => {
+  it("does not render job/model/serial/address UI and still edits fine", async () => {
     renderAcceptanceForm();
 
-    expect(await screen.findByText("Zenith Tower")).toBeInTheDocument();
-    expect(screen.getByText("SN-123")).toBeInTheDocument();
+    // Meta fields are not rendered in this editor
+    expect(screen.queryByText("Zenith Tower")).toBeNull();
+    expect(screen.queryByText("SN-123")).toBeNull();
+    expect(screen.queryByText(/Model:\s*/i)).toBeNull();
+    expect(screen.queryByText(/Site Street Address/i)).toBeNull();
+    expect(screen.queryByText(/Mailing Address/i)).toBeNull();
+    expect(screen.queryByText(/City \/ State \/ ZIP/i)).toBeNull();
 
-    expect(screen.getByText("Model: B")).toBeInTheDocument();
-    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
-
+    // Other fields still work
     const contactInput = screen.getByPlaceholderText("Contact name");
     fireEvent.change(contactInput, { target: { value: "Jamie Fox" } });
     expect(contactInput).toHaveValue("Jamie Fox");
@@ -61,12 +64,5 @@ describe("AcceptanceCertificationForm", () => {
     const gateNaButton = screen.getByRole("button", { name: "N/A" });
     fireEvent.click(gateNaButton);
     expect(gateNaButton).toHaveAttribute("aria-pressed", "true");
-  });
-
-  it("falls back to '-' when the report lacks a model", async () => {
-    renderAcceptanceForm({ model: "" });
-
-    expect(await screen.findByText("Zenith Tower")).toBeInTheDocument();
-    expect(screen.getByText("Model: -")).toBeInTheDocument();
   });
 });

@@ -32,16 +32,19 @@ function renderMotorForm({ model = "MQ" } = {}) {
 }
 
 describe("MotorTestForm", () => {
-  it("prefills shared values, renders the model badge, and saves edits", async () => {
+  it("does not render job/model/serial/address UI and saves edits", async () => {
     renderMotorForm();
 
-    // Prefill values appear after effect-driven update.
-    expect(await screen.findByText("Rocket Lift")).toBeInTheDocument();
-    expect(screen.getByText("M-200")).toBeInTheDocument();
+    // Meta fields should not be displayed here
+    expect(screen.queryByText("Rocket Lift")).toBeNull();
+    expect(screen.queryByText("M-200")).toBeNull();
+    expect(screen.queryByText(/Model:\s*/i)).toBeNull();
+    expect(screen.queryByText(/Site Street Address/i)).toBeNull();
+    expect(screen.queryByText(/City/i)).toBeNull();
+    expect(screen.queryByText(/State/i)).toBeNull();
+    expect(screen.queryByText(/Zip/i)).toBeNull();
 
-    expect(screen.getByText("Model: MQ")).toBeInTheDocument();
-    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
-
+    // Other fields still work
     const ratedLoad = screen.getByLabelText("Rated load");
     fireEvent.change(ratedLoad, { target: { value: "5000 lbs" } });
     expect(ratedLoad).toHaveValue("5000 lbs");
@@ -49,12 +52,5 @@ describe("MotorTestForm", () => {
     const currentInput = screen.getByLabelText("Up Unloaded T1");
     fireEvent.change(currentInput, { target: { value: "12.3" } });
     expect(currentInput).toHaveValue("12.3");
-  });
-
-  it("shows '-' when the report has no model", async () => {
-    renderMotorForm({ model: "" });
-
-    expect(await screen.findByText("Rocket Lift")).toBeInTheDocument();
-    expect(screen.getByText("Model: -")).toBeInTheDocument();
   });
 });
