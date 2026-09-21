@@ -44,6 +44,7 @@ import {
   ConnectionStatus,
   SaveStatus,
   BackupRestoreModal,
+  TemplateManagerModal,
 } from "./components";
 import useModalA11y from "./hooks/useModalA11y";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
@@ -79,6 +80,7 @@ function Workspace({
   const [docsOpen, setDocsOpen] = useState(false);
   const [manualsOpen, setManualsOpen] = useState(false);
   const [backupOpen, setBackupOpen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
 
   // Delete confirm state
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -93,6 +95,7 @@ function Workspace({
   const setupTriggerRef = useRef(null);
   const deleteTriggerRef = useRef(null);
   const backupTriggerRef = useRef(null);
+  const templatesTriggerRef = useRef(null);
   const reportsRef = useRef(reports);
   const pendingSaveTimerRef = useRef(null);
   const saveQueueRef = useRef(Promise.resolve());
@@ -611,6 +614,10 @@ function Workspace({
                   backupTriggerRef.current = event.currentTarget;
                   setBackupOpen(true);
                 }}
+                onTemplates={(event) => {
+                  templatesTriggerRef.current = event.currentTarget;
+                  setTemplatesOpen(true);
+                }}
               />
               <SaveStatus state={saveState} lastSavedAt={lastSavedAt} />
               <ConnectionStatus />
@@ -842,6 +849,13 @@ function Workspace({
           setBanner(`Restored ${restoredReports.length} reports from backup.`);
         }}
         returnFocusRef={backupTriggerRef}
+      />
+      <TemplateManagerModal
+        open={templatesOpen}
+        onClose={() => setTemplatesOpen(false)}
+        report={selected}
+        technician={currentUser}
+        returnFocusRef={templatesTriggerRef}
       />
     </div>
   );

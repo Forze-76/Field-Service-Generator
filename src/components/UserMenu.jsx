@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronDown, DatabaseBackup, LogOut, RefreshCcw, Shield, Users } from "lucide-react";
+import { ChevronDown, DatabaseBackup, FileArchive, LogOut, RefreshCcw, Shield, Users } from "lucide-react";
 
 function MenuItem({ icon: Icon, label, onClick, disabled }) {
   return (
@@ -17,7 +17,7 @@ function MenuItem({ icon: Icon, label, onClick, disabled }) {
   );
 }
 
-export default function UserMenu({ user, onLock, onSignOut, onSwitchUser, onSync, onBackup }) {
+export default function UserMenu({ user, onLock, onSignOut, onSwitchUser, onSync, onBackup, onTemplates }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
 
@@ -76,6 +76,14 @@ export default function UserMenu({ user, onLock, onSignOut, onSwitchUser, onSync
             label="Backup & Restore"
             onClick={(event) => {
               onBackup?.(event);
+              setOpen(false);
+            }}
+          />
+          <MenuItem
+            icon={FileArchive}
+            label="Document Templates"
+            onClick={(event) => {
+              onTemplates?.(event);
               setOpen(false);
             }}
           />

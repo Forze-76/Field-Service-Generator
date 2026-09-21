@@ -20,7 +20,14 @@ This test checks the field-report workflow over the same Wi-Fi network. Because 
 5. Refresh Safari and verify the report still appears.
 6. From the user menu, open **Backup & Restore**, tap **Create backup**, and save the JSON file to Files or iCloud Drive.
 7. Make a visible change, then restore the backup. Review the preview and confirm replacement only when the report count is correct.
-8. Generate the final field report and verify its text and photo order.
+8. In the user menu, open **Document Templates** and import the six supplied PDF, Word, and Excel templates from the iPad Files app (OneDrive is available there when enabled).
+9. Confirm all six templates show **Installed on this device**. Close and reopen the app, then confirm they remain installed.
+10. Open a report, return to **Document Templates**, and export each installed template.
+11. Open every output in its native app and verify the original layout is retained: PDFs in a PDF viewer, DOCX files in Word, and the XLSX workbook in Excel.
+12. Confirm the job, site, model, serial number, date, technician, and report-detail fields contain the report's data.
+13. Generate the final field report and verify its text and photo order.
+
+Templates are stored privately in the browser database on that iPad. They are not uploaded to GitHub. Clearing Safari website data removes them, so keep the originals in OneDrive or Files for recovery.
 
 ## Expected limitation
 

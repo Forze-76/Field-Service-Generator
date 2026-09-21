@@ -17,3 +17,4 @@ export { default as DocEditorShell } from "./DocEditorShell.jsx";
 export { default as ConnectionStatus } from "./ConnectionStatus.jsx";
 export { default as SaveStatus } from "./SaveStatus.jsx";
 export { default as BackupRestoreModal } from "./BackupRestoreModal.jsx";
+export { default as TemplateManagerModal } from "./TemplateManagerModal.jsx";

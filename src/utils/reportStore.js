@@ -1,8 +1,9 @@
 import { loadReports, saveReports } from "./fsr";
 
 export const REPORT_DB_NAME = "field-service-generator";
-export const REPORT_DB_VERSION = 1;
+export const REPORT_DB_VERSION = 2;
 export const REPORT_STORE_NAME = "report-data";
+export const TEMPLATE_STORE_NAME = "document-templates";
 export const REPORT_SCHEMA_VERSION = 2;
 
 const reportKey = (scopeId) => `reports:${scopeId || "default"}`;
@@ -36,6 +37,9 @@ export const openReportDatabase = (indexedDBImpl) => {
       const database = request.result;
       if (!database.objectStoreNames.contains(REPORT_STORE_NAME)) {
         database.createObjectStore(REPORT_STORE_NAME);
+      }
+      if (!database.objectStoreNames.contains(TEMPLATE_STORE_NAME)) {
+        database.createObjectStore(TEMPLATE_STORE_NAME, { keyPath: "id" });
       }
     };
     request.onsuccess = () => resolve(request.result);
