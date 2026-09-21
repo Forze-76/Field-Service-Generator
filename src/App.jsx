@@ -42,6 +42,7 @@ import {
   ReportHeaderBar,
   DocEditorShell,
   ConnectionStatus,
+  SaveStatus,
 } from "./components";
 import useModalA11y from "./hooks/useModalA11y";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
@@ -62,6 +63,8 @@ function Workspace({
 
   const [reports, setReports] = useState([]);
   const [loadedReportScope, setLoadedReportScope] = useState(null);
+  const [saveState, setSaveState] = useState("loading");
+  const [lastSavedAt, setLastSavedAt] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const selected = useMemo(()=> reports.find(r=>r.id===selectedId) || null, [reports, selectedId]);
 
@@ -87,19 +90,66 @@ function Workspace({
   const manualsTriggerRef = useRef(null);
   const setupTriggerRef = useRef(null);
   const deleteTriggerRef = useRef(null);
+  const reportsRef = useRef(reports);
+  const pendingSaveTimerRef = useRef(null);
+  const saveQueueRef = useRef(Promise.resolve());
+  const saveAttemptRef = useRef(0);
 
   const storageScope = storage?.scopeId || "";
+
+  useEffect(() => {
+    reportsRef.current = reports;
+  }, [reports]);
+
+  const persistReports = useCallback(
+    (snapshot = reportsRef.current) => {
+      const attempt = saveAttemptRef.current + 1;
+      saveAttemptRef.current = attempt;
+      setSaveState("saving");
+      const queuedSave = saveQueueRef.current
+        .catch(() => undefined)
+        .then(() =>
+          saveReportsToIndexedDb(snapshot, { scopeId: storageScope, legacyStorage: storage }),
+        );
+      saveQueueRef.current = queuedSave;
+      return queuedSave
+        .then(() => {
+          if (attempt !== saveAttemptRef.current) return;
+          setSaveState("saved");
+          setLastSavedAt(new Date());
+        })
+        .catch((error) => {
+          if (attempt !== saveAttemptRef.current) throw error;
+          console.error("Failed to save reports to IndexedDB", error);
+          setSaveState("error");
+          setBanner("The latest report changes could not be saved on this device.");
+          throw error;
+        });
+    },
+    [storage, storageScope],
+  );
+
+  const flushPendingSave = useCallback(async () => {
+    if (pendingSaveTimerRef.current) {
+      clearTimeout(pendingSaveTimerRef.current);
+      pendingSaveTimerRef.current = null;
+    }
+    if (loadedReportScope !== storageScope) return;
+    await persistReports(reportsRef.current);
+  }, [loadedReportScope, persistReports, storageScope]);
 
   useEffect(() => {
     if (!storage) return;
     setTypes(loadTypes(storage));
     setLoadedReportScope(null);
+    setSaveState("loading");
     let cancelled = false;
     loadReportsFromIndexedDb({ scopeId: storageScope, legacyStorage: storage })
       .then(({ reports: storedReports }) => {
         if (cancelled) return;
         setReports(storedReports);
         setLoadedReportScope(storageScope);
+        setSaveState("saved");
       })
       .catch((error) => {
         console.error("Failed to load reports from IndexedDB", error);
@@ -117,14 +167,49 @@ function Workspace({
   // Persist on changes
   useEffect(() => {
     if (!storage || loadedReportScope !== storageScope) return;
-    const timer = setTimeout(() => {
-      saveReportsToIndexedDb(reports, { scopeId: storageScope, legacyStorage: storage }).catch((error) => {
-        console.error("Failed to save reports to IndexedDB", error);
-        setBanner("The latest report changes could not be saved on this device.");
-      });
+    setSaveState("saving");
+    if (pendingSaveTimerRef.current) clearTimeout(pendingSaveTimerRef.current);
+    pendingSaveTimerRef.current = setTimeout(() => {
+      pendingSaveTimerRef.current = null;
+      persistReports(reports).catch(() => undefined);
     }, 200);
-    return () => clearTimeout(timer);
-  }, [reports, storage, storageScope, loadedReportScope]);
+    return () => {
+      if (pendingSaveTimerRef.current) {
+        clearTimeout(pendingSaveTimerRef.current);
+        pendingSaveTimerRef.current = null;
+      }
+    };
+  }, [reports, storage, storageScope, loadedReportScope, persistReports]);
+
+  useEffect(() => {
+    const flushOnPageHide = () => {
+      flushPendingSave().catch(() => undefined);
+    };
+    const flushWhenHidden = () => {
+      if (document.visibilityState === "hidden") flushOnPageHide();
+    };
+    window.addEventListener("pagehide", flushOnPageHide);
+    document.addEventListener("visibilitychange", flushWhenHidden);
+    return () => {
+      window.removeEventListener("pagehide", flushOnPageHide);
+      document.removeEventListener("visibilitychange", flushWhenHidden);
+    };
+  }, [flushPendingSave]);
+
+  const handleLock = useCallback(async () => {
+    await flushPendingSave();
+    onLock?.();
+  }, [flushPendingSave, onLock]);
+
+  const handleSignOut = useCallback(async () => {
+    await flushPendingSave();
+    onSignOut?.();
+  }, [flushPendingSave, onSignOut]);
+
+  const handleSwitchUser = useCallback(async () => {
+    await flushPendingSave();
+    onSwitchUser?.();
+  }, [flushPendingSave, onSwitchUser]);
 
   useEffect(() => {
     if (!toast) return;
@@ -515,11 +600,12 @@ function Workspace({
               </div>
               <UserMenu
                 user={currentUser}
-                onLock={onLock}
-                onSignOut={onSignOut}
-                onSwitchUser={onSwitchUser}
+                onLock={handleLock}
+                onSignOut={handleSignOut}
+                onSwitchUser={handleSwitchUser}
                 onSync={handleSync}
               />
+              <SaveStatus state={saveState} lastSavedAt={lastSavedAt} />
               <ConnectionStatus />
             </div>
           </div>

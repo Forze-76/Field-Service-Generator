@@ -36,6 +36,14 @@ export default function UserMenu({ user, onLock, onSignOut, onSwitchUser, onSync
   }, [open]);
 
   const online = typeof navigator !== "undefined" ? navigator.onLine : false;
+  const runAndClose = async (action) => {
+    try {
+      await action?.();
+      setOpen(false);
+    } catch {
+      // The workspace keeps the menu open and displays the save failure.
+    }
+  };
 
   return (
     <div className="relative" ref={containerRef}>
@@ -66,26 +74,17 @@ export default function UserMenu({ user, onLock, onSignOut, onSwitchUser, onSync
           <MenuItem
             icon={Users}
             label="Switch user"
-            onClick={() => {
-              onSwitchUser?.();
-              setOpen(false);
-            }}
+            onClick={() => runAndClose(onSwitchUser)}
           />
           <MenuItem
             icon={Shield}
             label="Lock"
-            onClick={() => {
-              onLock?.();
-              setOpen(false);
-            }}
+            onClick={() => runAndClose(onLock)}
           />
           <MenuItem
             icon={LogOut}
             label="Sign out"
-            onClick={() => {
-              onSignOut?.();
-              setOpen(false);
-            }}
+            onClick={() => runAndClose(onSignOut)}
           />
         </div>
       )}
