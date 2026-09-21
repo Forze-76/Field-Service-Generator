@@ -1,0 +1,14 @@
+{
+  "name": "Field Service Report Generator",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bookworm",
+  "forwardPorts": [5173],
+  "portsAttributes": {
+    "5173": {
+      "label": "Field Service Report Preview",
+      "protocol": "https",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "postCreateCommand": "npm install",
+  "postStartCommand": "npm run ipad:test > /tmp/fsr-vite.log 2>&1 &"
+}
