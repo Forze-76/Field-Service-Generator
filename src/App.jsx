@@ -50,6 +50,7 @@ import {
 import useModalA11y from "./hooks/useModalA11y";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import AuthGate from "./auth/AuthGate";
+import { parseTripInvite } from "./utils/inviteParser";
 
 // ===================== Main App =====================
 function Workspace({
@@ -267,6 +268,36 @@ function Workspace({
     (draft) => {
       if (!draft) return;
       const { jobNo, tripType, model, startAt, endAt } = draft;
+      const inviteMeta = draft.inviteMeta || null;
+      const projectContact = inviteMeta?.projectContact || {};
+      const installContact = inviteMeta?.installContact || {};
+      const documents = makeDocs(tripType).map((doc) => {
+        const name = (doc.name || "").toLowerCase();
+        if (name === "service summary") {
+          return {
+            ...doc,
+            data: {
+              ...doc.data,
+              pmContact: [projectContact.name, projectContact.email].filter(Boolean).join(" | "),
+              customerContact: [installContact.name, installContact.phone].filter(Boolean).join(" | "),
+            },
+          };
+        }
+        if (isAcceptanceCertDocName(doc.name)) {
+          return {
+            ...doc,
+            data: {
+              ...doc.data,
+              customerContactName: projectContact.name || installContact.name || "",
+              customerContactPhone: projectContact.phone || installContact.phone || "",
+              customerContactEmail: projectContact.email || installContact.email || "",
+              customerCompany: projectContact.company || installContact.company || "",
+              startupDate: String(startAt || "").slice(0, 10),
+            },
+          };
+        }
+        return doc;
+      });
       const report = {
         id: uid(),
         jobNo: jobNo.trim(),
@@ -277,7 +308,7 @@ function Workspace({
         createdAt: new Date().toISOString(),
         serialTagImageUrl: "",
         serialTagMissing: false,
-        documents: makeDocs(tripType),
+        documents,
         photos: [],
         sharedSite: {
           jobName: "",
@@ -287,7 +318,10 @@ function Workspace({
           siteCity: "",
           siteState: "",
           siteZip: "",
+          customerContact: "",
+          ...(draft.sharedSite || {}),
         },
+        inviteMeta,
       };
       setReports((prev) => [report, ...prev]);
       setSelectedId(report.id);
@@ -918,6 +952,8 @@ function makeInitialReportDraft() {
 function ReportSetup({ open, onClose, types, onCreate, returnFocusRef }) {
   const containerRef = useRef(null);
   const [draft, setDraft] = useState(() => makeInitialReportDraft());
+  const [inviteError, setInviteError] = useState("");
+  const inviteInputRef = useRef(null);
   const initializedRef = useRef(false);
   const idPrefix = useId();
   const jobFieldId = `${idPrefix}-job`;
@@ -929,6 +965,7 @@ function ReportSetup({ open, onClose, types, onCreate, returnFocusRef }) {
   useEffect(() => {
     if (open && !initializedRef.current) {
       setDraft(makeInitialReportDraft());
+      setInviteError("");
       initializedRef.current = true;
     } else if (!open && initializedRef.current) {
       initializedRef.current = false;
@@ -949,6 +986,20 @@ function ReportSetup({ open, onClose, types, onCreate, returnFocusRef }) {
       ...draft,
       jobNo: clampJob(draft.jobNo),
     });
+  };
+
+  const handleInviteFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setInviteError("");
+    try {
+      const imported = parseTripInvite(await file.text());
+      setDraft((previous) => ({ ...previous, ...imported }));
+    } catch (error) {
+      setInviteError(error instanceof Error ? error.message : "Unable to read this calendar invitation.");
+    } finally {
+      event.target.value = "";
+    }
   };
 
   const handleOverlayMouseDown = (event) => {
@@ -974,6 +1025,19 @@ function ReportSetup({ open, onClose, types, onCreate, returnFocusRef }) {
           >
             <X size={18} />
           </button>
+        </div>
+        <input ref={inviteInputRef} className="hidden" type="file" accept=".ics,text/calendar" onChange={handleInviteFile} />
+        <div className="mb-4 rounded-xl border bg-blue-50 p-3">
+          <button
+            type="button"
+            className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white"
+            onClick={() => inviteInputRef.current?.click()}
+          >
+            Import Calendar Invite
+          </button>
+          <span className="ml-3 text-xs text-blue-900">Automatically fills the job, trip type, dates, site, and contacts.</span>
+          {draft.inviteMeta?.summary && <div className="mt-2 text-xs font-medium text-emerald-700">Loaded: {draft.inviteMeta.summary}</div>}
+          {inviteError && <div className="mt-2 text-xs text-red-600">{inviteError}</div>}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
