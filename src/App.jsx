@@ -10,7 +10,6 @@ import {
   exportReport,
   formatRange,
   isValidJob,
-  loadReports,
   loadTypes,
   makeDocs,
   ACCEPTANCE_CERT_DOC_NAME,
@@ -20,12 +19,12 @@ import {
   MOTOR_TEST_DOC_NAME,
   isMotorTestDocName,
   removeEntryFromFsrData,
-  saveReports,
   setEntriesCollapsedState,
   toISOInput,
   uid,
   updateEntryInFsrData,
 } from "./utils/fsr";
+import { loadReportsFromIndexedDb, saveReportsToIndexedDb } from "./utils/reportStore";
 import {
   ConfirmDialog,
   DocumentTabs,
@@ -61,7 +60,8 @@ function Workspace({
   const [types, setTypes] = useState(() => loadTypes(storage));
   const [manageOpen, setManageOpen] = useState(false);
 
-  const [reports, setReports] = useState(() => loadReports(storage));
+  const [reports, setReports] = useState([]);
+  const [loadedReportScope, setLoadedReportScope] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const selected = useMemo(()=> reports.find(r=>r.id===selectedId) || null, [reports, selectedId]);
 
@@ -93,18 +93,38 @@ function Workspace({
   useEffect(() => {
     if (!storage) return;
     setTypes(loadTypes(storage));
-    setReports(loadReports(storage));
+    setLoadedReportScope(null);
+    let cancelled = false;
+    loadReportsFromIndexedDb({ scopeId: storageScope, legacyStorage: storage })
+      .then(({ reports: storedReports }) => {
+        if (cancelled) return;
+        setReports(storedReports);
+        setLoadedReportScope(storageScope);
+      })
+      .catch((error) => {
+        console.error("Failed to load reports from IndexedDB", error);
+        if (cancelled) return;
+        setReports([]);
+        setLoadedReportScope(storageScope);
+        setBanner("Reports could not be loaded from local device storage.");
+      });
     setSelectedId(null);
+    return () => {
+      cancelled = true;
+    };
   }, [storageScope]);
 
   // Persist on changes
   useEffect(() => {
-    if (!storage) return;
+    if (!storage || loadedReportScope !== storageScope) return;
     const timer = setTimeout(() => {
-      saveReports(reports, storage);
+      saveReportsToIndexedDb(reports, { scopeId: storageScope, legacyStorage: storage }).catch((error) => {
+        console.error("Failed to save reports to IndexedDB", error);
+        setBanner("The latest report changes could not be saved on this device.");
+      });
     }, 200);
     return () => clearTimeout(timer);
-  }, [reports, storage]);
+  }, [reports, storage, storageScope, loadedReportScope]);
 
   useEffect(() => {
     if (!toast) return;
