@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Field Service Generator</title>
+  <rect width="512" height="512" rx="112" fill="#1d4ed8"/>
+  <rect x="116" y="104" width="280" height="320" rx="36" fill="#ffffff"/>
+  <rect x="190" y="76" width="132" height="64" rx="24" fill="#bfdbfe"/>
+  <path d="M174 214h164M174 274h164M174 334h104" fill="none" stroke="#1d4ed8" stroke-linecap="round" stroke-width="28"/>
+  <circle cx="333" cy="349" r="61" fill="#16a34a"/>
+  <path d="m302 349 20 20 42-45" fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round" stroke-width="18"/>
+</svg>
