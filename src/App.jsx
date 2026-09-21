@@ -45,6 +45,7 @@ import {
   SaveStatus,
   BackupRestoreModal,
   TemplateManagerModal,
+  BuildStamp,
 } from "./components";
 import useModalA11y from "./hooks/useModalA11y";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
@@ -503,6 +504,7 @@ function Workspace({
 
   return (
     <div className="min-h-dvh bg-gradient-to-b from-gray-50 to-white">
+      <BuildStamp />
       {toast && (
         <div className="fixed top-6 right-6 z-50">
           <div className="rounded-xl bg-slate-900/90 px-4 py-3 text-sm font-medium text-white shadow-xl">

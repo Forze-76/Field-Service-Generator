@@ -18,3 +18,4 @@ export { default as ConnectionStatus } from "./ConnectionStatus.jsx";
 export { default as SaveStatus } from "./SaveStatus.jsx";
 export { default as BackupRestoreModal } from "./BackupRestoreModal.jsx";
 export { default as TemplateManagerModal } from "./TemplateManagerModal.jsx";
+export { default as BuildStamp } from "./BuildStamp.jsx";
