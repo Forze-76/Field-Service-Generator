@@ -78,8 +78,15 @@ export default function AuthGate() {
     if (!canSubmitSignIn) return;
     setLoading(true);
     setMessage(null);
-    const result = await signIn({ email, pin, remember: rememberSelection });
-    setLoading(false);
+    let result;
+    try {
+      result = await signIn({ email, pin, remember: rememberSelection });
+    } catch {
+      setMessage({ type: "error", text: "Unable to access local account storage on this device." });
+      return;
+    } finally {
+      setLoading(false);
+    }
     if (!result.ok) {
       if (result.error === "not-found") {
         setMessage({ type: "info", text: "No local account found. Sign in requires internet for first time." });
@@ -105,8 +112,15 @@ export default function AuthGate() {
     if (!canSubmitCreate) return;
     setLoading(true);
     setMessage(null);
-    const result = await createAccount({ email, pin, name, remember: rememberSelection });
-    setLoading(false);
+    let result;
+    try {
+      result = await createAccount({ email, pin, name, remember: rememberSelection });
+    } catch {
+      setMessage({ type: "error", text: "Unable to create a local account on this device." });
+      return;
+    } finally {
+      setLoading(false);
+    }
     if (!result.ok) {
       if (result.error === "duplicate-email") {
         setMessage({ type: "error", text: "An account with that email already exists on this device." });

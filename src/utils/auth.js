@@ -1,5 +1,6 @@
 import { uid } from "./id";
 import { createScopedStorage, hasUserScopedData, listGlobalFsrKeys, toScopedKey } from "./storage";
+import { sha256 } from "@noble/hashes/sha2.js";
 
 export const USERS_KEY = "fsr.users";
 export const CURRENT_USER_KEY = "fsr.currentUserId";
@@ -61,7 +62,7 @@ export const hashPin = async (deviceSalt, email, pin) => {
   const normalizedEmail = normalizeEmail(email);
   const normalizedPin = String(pin ?? "").trim();
   const payload = `${deviceSalt}:${normalizedEmail}:${normalizedPin}`;
-  const digest = await getCrypto().subtle.digest("SHA-256", encoder.encode(payload));
+  const digest = sha256(encoder.encode(payload));
   return encodeBase64(digest);
 };
 
