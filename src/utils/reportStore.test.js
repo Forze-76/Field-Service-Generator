@@ -1,6 +1,13 @@
+import { Blob as NodeBlob } from "node:buffer";
 import { IDBFactory } from "fake-indexeddb";
-import { describe, expect, it } from "vitest";
-import { loadReportsFromIndexedDb, saveReportsToIndexedDb } from "./reportStore";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  hydrateReportsFromStorage,
+  loadReportsFromIndexedDb,
+  REPORT_SCHEMA_VERSION,
+  saveReportsToIndexedDb,
+  serializeReportsForStorage,
+} from "./reportStore";
 
 const createMemoryStorage = () => {
   const values = new Map();
@@ -10,6 +17,8 @@ const createMemoryStorage = () => {
     removeItem: (key) => values.delete(key),
   };
 };
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("reportStore", () => {
   it("migrates existing localStorage reports on first load", async () => {
@@ -47,6 +56,35 @@ describe("reportStore", () => {
 
     expect(alpha.reports).toEqual([{ id: "alpha" }]);
     expect(bravo.reports).toEqual([{ id: "bravo" }]);
+  });
+
+  it("stores image data as blobs and restores data URLs for the UI", async () => {
+    vi.stubGlobal("Blob", NodeBlob);
+    const indexedDBImpl = new IDBFactory();
+    const legacyStorage = createMemoryStorage();
+    const reports = [
+      {
+        id: "photo-report",
+        serialTagImageUrl: "data:image/png;base64,aGVsbG8=",
+        photos: [{ id: "photo-1", imageUrl: "data:image/jpeg;base64,d29ybGQ=" }],
+      },
+    ];
+
+    const stored = await serializeReportsForStorage(reports);
+    expect(stored[0].serialTagImageUrl).toBeInstanceOf(Blob);
+    expect(stored[0].photos[0].imageUrl).toBeInstanceOf(Blob);
+
+    const hydrated = await hydrateReportsFromStorage(stored);
+    expect(hydrated).toEqual(reports);
+    expect(REPORT_SCHEMA_VERSION).toBe(2);
+
+    await saveReportsToIndexedDb(reports, { scopeId: "photo-tech", indexedDBImpl });
+    const reloaded = await loadReportsFromIndexedDb({
+      scopeId: "photo-tech",
+      legacyStorage,
+      indexedDBImpl,
+    });
+    expect(reloaded.reports).toEqual(reports);
   });
 
   it("falls back to legacy storage when IndexedDB is unavailable", async () => {

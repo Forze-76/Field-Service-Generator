@@ -3,7 +3,7 @@ import { loadReports, saveReports } from "./fsr";
 export const REPORT_DB_NAME = "field-service-generator";
 export const REPORT_DB_VERSION = 1;
 export const REPORT_STORE_NAME = "report-data";
-export const REPORT_SCHEMA_VERSION = 1;
+export const REPORT_SCHEMA_VERSION = 2;
 
 const reportKey = (scopeId) => `reports:${scopeId || "default"}`;
 
@@ -57,17 +57,60 @@ const writeRecord = async (database, key, value) => {
   await transactionDone(transaction);
 };
 
-const migrateRecord = (record) => {
+const dataUrlToBlob = (dataUrl) => {
+  const match = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(dataUrl);
+  if (!match) return dataUrl;
+  const mimeType = match[1] || "application/octet-stream";
+  const binary = match[2] ? atob(match[3]) : decodeURIComponent(match[3]);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new Blob([bytes], { type: mimeType });
+};
+
+const blobToDataUrl = async (blob) => {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return `data:${blob.type || "application/octet-stream"};base64,${btoa(binary)}`;
+};
+
+const isBlobValue = (value) =>
+  value &&
+  typeof value === "object" &&
+  typeof value.arrayBuffer === "function" &&
+  typeof value.type === "string";
+
+const mapImageValues = async (value, direction) => {
+  if (direction === "store" && typeof value === "string" && value.startsWith("data:image/")) {
+    return dataUrlToBlob(value);
+  }
+  if (direction === "load" && isBlobValue(value)) {
+    return blobToDataUrl(value);
+  }
+  if (Array.isArray(value)) {
+    return Promise.all(value.map((item) => mapImageValues(item, direction)));
+  }
+  if (value && typeof value === "object") {
+    const entries = await Promise.all(
+      Object.entries(value).map(async ([key, item]) => [key, await mapImageValues(item, direction)]),
+    );
+    return Object.fromEntries(entries);
+  }
+  return value;
+};
+
+export const serializeReportsForStorage = (reports) => mapImageValues(reports, "store");
+export const hydrateReportsFromStorage = (reports) => mapImageValues(reports, "load");
+
+const validateRecord = (record) => {
   if (!record || !Array.isArray(record.reports)) return null;
   const version = Number(record.schemaVersion || 0);
   if (version > REPORT_SCHEMA_VERSION) {
     throw new Error(`Unsupported report schema version ${version}`);
   }
-  return {
-    schemaVersion: REPORT_SCHEMA_VERSION,
-    reports: record.reports,
-    updatedAt: record.updatedAt || new Date().toISOString(),
-  };
+  return { ...record, schemaVersion: version };
 };
 
 export async function loadReportsFromIndexedDb({
@@ -97,18 +140,31 @@ export async function loadReportsFromIndexedDb({
   try {
     const key = reportKey(scopeId);
     const storedRecord = await readRecord(database, key);
-    const existing = migrateRecord(storedRecord);
+    const existing = validateRecord(storedRecord);
     if (existing) {
-      if (existing.schemaVersion !== storedRecord.schemaVersion) {
-        await writeRecord(database, key, existing);
+      let persistedReports = existing.reports;
+      if (existing.schemaVersion < REPORT_SCHEMA_VERSION) {
+        persistedReports = await serializeReportsForStorage(existing.reports);
+        await writeRecord(database, key, {
+          ...existing,
+          schemaVersion: REPORT_SCHEMA_VERSION,
+          reports: persistedReports,
+          updatedAt: new Date().toISOString(),
+          migratedFromSchema: existing.schemaVersion,
+        });
       }
-      return { reports: existing.reports, migrated: false, persistence: "indexedDB" };
+      return {
+        reports: await hydrateReportsFromStorage(persistedReports),
+        migrated: existing.schemaVersion < REPORT_SCHEMA_VERSION,
+        persistence: "indexedDB",
+      };
     }
 
     const legacyReports = loadReports(legacyStorage);
+    const persistedReports = await serializeReportsForStorage(legacyReports);
     await writeRecord(database, key, {
       schemaVersion: REPORT_SCHEMA_VERSION,
-      reports: legacyReports,
+      reports: persistedReports,
       updatedAt: new Date().toISOString(),
       migratedFrom: "localStorage",
     });
@@ -131,9 +187,10 @@ export async function saveReportsToIndexedDb(
     return { persistence: "localStorage-fallback" };
   }
   try {
+    const persistedReports = await serializeReportsForStorage(Array.isArray(reports) ? reports : []);
     await writeRecord(database, reportKey(scopeId), {
       schemaVersion: REPORT_SCHEMA_VERSION,
-      reports: Array.isArray(reports) ? reports : [],
+      reports: persistedReports,
       updatedAt: new Date().toISOString(),
     });
     return { persistence: "indexedDB" };

@@ -67,9 +67,10 @@ function PhotoVault({ photos = [], onChange }) {
         </div>
       </div>
       {photosList.length === 0 ? (
-        <p className="text-gray-500 mt-3">
-          No photos yet. Use <b>Add Photo(s)</b> to upload field pictures.
-        </p>
+        <div className="mt-3 text-gray-500">
+          <p>No photos yet. Use <b>Add Photo(s)</b> to upload field pictures.</p>
+          <p className="mt-1 text-xs">Originals stay in Photos; the report keeps a compressed offline copy.</p>
+        </div>
       ) : (
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {photosList.map((p, idx) => (

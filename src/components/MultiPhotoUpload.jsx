@@ -78,7 +78,9 @@ function MultiPhotoUpload({ photos = [], onChange, disabled = false }) {
         <div className="flex flex-col items-center gap-2 text-sm text-gray-600">
           <Camera size={22} className="text-blue-500" />
           <div className="font-medium">Tap or drop photos</div>
-          <div className="text-xs text-gray-400">You can add multiple photos at once.</div>
+          <div className="text-xs text-gray-400">
+            Originals stay in Photos; a smaller offline copy is added to this report.
+          </div>
         </div>
       </div>
       <input

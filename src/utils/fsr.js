@@ -928,13 +928,68 @@ export const esc = (value = "") =>
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
-export function fileToDataURL(file) {
-  return new Promise((resolve, reject) => {
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+
+const loadImage = (source) =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Unable to decode image"));
+    image.src = source;
+  });
+
+const canvasToDataUrl = (canvas, type, quality) =>
+  new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error("Unable to compress image"));
+          return;
+        }
+        readFileAsDataUrl(blob).then(resolve, reject);
+      },
+      type,
+      quality,
+    );
+  });
+
+export const calculateCompressedDimensions = (width, height, maxDimension = 1600) => {
+  const longestSide = Math.max(width, height);
+  const scale = longestSide > maxDimension ? maxDimension / longestSide : 1;
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+};
+
+export async function fileToDataURL(file, { maxDimension = 1600, quality = 0.82 } = {}) {
+  const original = await readFileAsDataUrl(file);
+  if (!file?.type?.startsWith("image/")) return original;
+
+  try {
+    const image = await loadImage(original);
+    const { width, height } = calculateCompressedDimensions(
+      image.naturalWidth,
+      image.naturalHeight,
+      maxDimension,
+    );
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) return original;
+    context.drawImage(image, 0, 0, width, height);
+    return await canvasToDataUrl(canvas, "image/jpeg", quality);
+  } catch (error) {
+    console.warn("Image compression unavailable; using original image", error);
+    return original;
+  }
 }
 
 const defaultDocsByType = {
