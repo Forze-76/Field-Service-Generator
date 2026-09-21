@@ -25,7 +25,7 @@ const requestResult = (request) =>
 export const identifyTemplate = (filename = "") =>
   TEMPLATE_CATALOG.find((template) => template.match.test(filename)) || null;
 
-export async function saveTemplateFile(file, indexedDBImpl) {
+export async function saveTemplateFile(file, indexedDBImpl, metadata = {}) {
   const definition = identifyTemplate(file?.name || "");
   if (!definition) throw new Error(`Unrecognized template: ${file?.name || "unnamed file"}`);
   const database = await openReportDatabase(indexedDBImpl);
@@ -39,6 +39,7 @@ export async function saveTemplateFile(file, indexedDBImpl) {
       blob: file,
       size: file.size,
       updatedAt: new Date().toISOString(),
+      ...metadata,
     });
     await transactionDone(transaction);
     return definition;
