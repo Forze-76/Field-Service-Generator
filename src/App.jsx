@@ -42,6 +42,7 @@ import {
   AcceptanceCertificationForm,
   ReportHeaderBar,
   DocEditorShell,
+  ConnectionStatus,
 } from "./components";
 import useModalA11y from "./hooks/useModalA11y";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
@@ -499,6 +500,7 @@ function Workspace({
                 onSwitchUser={onSwitchUser}
                 onSync={handleSync}
               />
+              <ConnectionStatus />
             </div>
           </div>
 
