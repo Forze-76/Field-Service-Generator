@@ -81,7 +81,7 @@ export default function UserMenu({ user, onLock, onSignOut, onSwitchUser, onSync
           />
           <MenuItem
             icon={FileArchive}
-            label="Document Templates"
+            label="Export Documents"
             onClick={(event) => {
               onTemplates?.(event);
               setOpen(false);

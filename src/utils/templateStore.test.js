@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
-import { getStoredTemplate, identifyTemplate, listStoredTemplates, saveTemplateFile } from "./templateStore";
+import { getStoredTemplate, identifyTemplate, listStoredTemplates, saveTemplateFile, templatesForTrip } from "./templateStore";
 
 describe("native document template storage", () => {
   let indexedDBImpl;
@@ -24,5 +24,29 @@ describe("native document template storage", () => {
     expect(records).toHaveLength(1);
     expect(stored.filename).toBe(file.name);
     expect(stored.size).toBe(file.size);
+  });
+
+  it("keeps copies of the same template separate for each trip type", async () => {
+    const service = new File(["service"], "2026 Service Summary Form.pdf", { type: "application/pdf" });
+    const startup = new File(["startup"], "2026 Service Summary Form.pdf", { type: "application/pdf" });
+    await saveTemplateFile(service, indexedDBImpl, { tripType: "Service" });
+    await saveTemplateFile(startup, indexedDBImpl, { tripType: "Start Up" });
+
+    const records = await listStoredTemplates(indexedDBImpl);
+    expect(records).toHaveLength(2);
+    expect(records.map((record) => record.id).sort()).toEqual([
+      "service:service-summary",
+      "start up:service-summary",
+    ]);
+  });
+
+  it("returns the five native documents used by Start Up", () => {
+    expect(templatesForTrip("Start Up").map((template) => template.id)).toEqual([
+      "service-summary",
+      "acceptance-certification",
+      "motor-test",
+      "field-service-report",
+      "internal-field-service-report",
+    ]);
   });
 });

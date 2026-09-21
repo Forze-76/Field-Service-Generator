@@ -310,6 +310,23 @@ export async function shareOrDownloadDocument(blob, filename) {
   }
 }
 
+export async function shareOrDownloadDocuments(documents) {
+  const files = documents.map(({ blob, filename }) =>
+    new File([blob], filename, { type: blob.type || "application/octet-stream" }));
+  if (navigator.share && navigator.canShare?.({ files })) {
+    await navigator.share({ title: "Field service documents", files });
+    return;
+  }
+  files.forEach((file) => {
+    const url = URL.createObjectURL(file);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = file.name;
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+}
+
 export const outputFilename = (record, report) => {
   const date = String(report.startAt || new Date().toISOString()).slice(0, 10).replace(/-/g, ".");
   const job = text(report.jobNo || "JXXXXX").replace(/[^A-Za-z0-9#-]/g, "-");
