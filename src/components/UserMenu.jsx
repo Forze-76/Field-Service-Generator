@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronDown, LogOut, RefreshCcw, Shield, Users } from "lucide-react";
+import { ChevronDown, DatabaseBackup, LogOut, RefreshCcw, Shield, Users } from "lucide-react";
 
 function MenuItem({ icon: Icon, label, onClick, disabled }) {
   return (
@@ -17,7 +17,7 @@ function MenuItem({ icon: Icon, label, onClick, disabled }) {
   );
 }
 
-export default function UserMenu({ user, onLock, onSignOut, onSwitchUser, onSync }) {
+export default function UserMenu({ user, onLock, onSignOut, onSwitchUser, onSync, onBackup }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
 
@@ -68,6 +68,14 @@ export default function UserMenu({ user, onLock, onSignOut, onSwitchUser, onSync
             onClick={() => {
               if (!online) return;
               onSync?.();
+              setOpen(false);
+            }}
+          />
+          <MenuItem
+            icon={DatabaseBackup}
+            label="Backup & Restore"
+            onClick={(event) => {
+              onBackup?.(event);
               setOpen(false);
             }}
           />

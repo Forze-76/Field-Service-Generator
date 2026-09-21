@@ -43,6 +43,7 @@ import {
   DocEditorShell,
   ConnectionStatus,
   SaveStatus,
+  BackupRestoreModal,
 } from "./components";
 import useModalA11y from "./hooks/useModalA11y";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
@@ -77,6 +78,7 @@ function Workspace({
   const [activeDocId, setActiveDocId] = useState(null);
   const [docsOpen, setDocsOpen] = useState(false);
   const [manualsOpen, setManualsOpen] = useState(false);
+  const [backupOpen, setBackupOpen] = useState(false);
 
   // Delete confirm state
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -90,6 +92,7 @@ function Workspace({
   const manualsTriggerRef = useRef(null);
   const setupTriggerRef = useRef(null);
   const deleteTriggerRef = useRef(null);
+  const backupTriggerRef = useRef(null);
   const reportsRef = useRef(reports);
   const pendingSaveTimerRef = useRef(null);
   const saveQueueRef = useRef(Promise.resolve());
@@ -604,6 +607,10 @@ function Workspace({
                 onSignOut={handleSignOut}
                 onSwitchUser={handleSwitchUser}
                 onSync={handleSync}
+                onBackup={(event) => {
+                  backupTriggerRef.current = event.currentTarget;
+                  setBackupOpen(true);
+                }}
               />
               <SaveStatus state={saveState} lastSavedAt={lastSavedAt} />
               <ConnectionStatus />
@@ -822,6 +829,19 @@ function Workspace({
         types={types}
         onCreate={handleCreateReport}
         returnFocusRef={setupTriggerRef}
+      />
+
+      <BackupRestoreModal
+        open={backupOpen}
+        onClose={() => setBackupOpen(false)}
+        reports={reports}
+        technician={currentUser}
+        onRestore={(restoredReports) => {
+          setReports(restoredReports);
+          setSelectedId(null);
+          setBanner(`Restored ${restoredReports.length} reports from backup.`);
+        }}
+        returnFocusRef={backupTriggerRef}
       />
     </div>
   );
