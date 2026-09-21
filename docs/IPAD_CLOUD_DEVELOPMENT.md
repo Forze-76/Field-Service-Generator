@@ -12,7 +12,7 @@ GitHub Codespaces runs the repository in a cloud development environment. The iP
 
    `https://CODESPACE-NAME-5173.app.github.dev`
 
-The port is configured for HTTPS and remains private to the signed-in GitHub account.
+The local Vite port uses HTTP inside Codespaces, while GitHub exposes it through a secure HTTPS address that remains private to the signed-in GitHub account.
 
 ## Authorize Google sign-in
 
