@@ -1,3 +1,4 @@
+import GmailInvitePicker from "./components/GmailInvitePicker";
 // FSR iPad – Web Demo Prototype (React) v0.8 (widgets removed)
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Plus, FileDown, X, Settings, Trash, Search, FolderPlus, Calendar, Home as HomeIcon, Cog, BookOpen, Camera } from "lucide-react";
@@ -50,7 +51,7 @@ import {
 import useModalA11y from "./hooks/useModalA11y";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import AuthGate from "./auth/AuthGate";
-import { parseTripInvite } from "./utils/inviteParser";
+import { parseTripInvite, findImportedInvite } from "./utils/inviteParser";
 
 // ===================== Main App =====================
 function Workspace({
@@ -334,6 +335,8 @@ function Workspace({
   const handleCreateReport = useCallback(
     (draft) => {
       if (!draft) return;
+      const imported = findImportedInvite(reports, draft);
+      if (imported) { setSelectedId(imported.id); setSetupOpen(false); return; }
       const normalized = draft.jobNo.trim().toLowerCase();
       const existing = reports.find((report) => report.jobNo.trim().toLowerCase() === normalized);
       if (existing) {
@@ -342,7 +345,7 @@ function Workspace({
       }
       createReportFromDraft(draft);
     },
-    [reports, createReportFromDraft],
+    [reports, createReportFromDraft, setSelectedId],
   );
 
   const updateReport = useCallback(
@@ -870,6 +873,8 @@ function Workspace({
         open={setupOpen}
         onClose={()=>{ setSetupOpen(false); setDuplicatePrompt(null); }}
         types={types}
+        reports={reports}
+        onOpenExisting={(id) => { setSelectedId(id); setSetupOpen(false); }}
         onCreate={handleCreateReport}
         returnFocusRef={setupTriggerRef}
       />
@@ -949,7 +954,7 @@ function makeInitialReportDraft() {
   };
 }
 
-function ReportSetup({ open, onClose, types, onCreate, returnFocusRef }) {
+function ReportSetup({ open, onClose, types, onCreate, returnFocusRef, reports = [], onOpenExisting }) {
   const containerRef = useRef(null);
   const [draft, setDraft] = useState(() => makeInitialReportDraft());
   const [inviteError, setInviteError] = useState("");
@@ -977,8 +982,10 @@ function ReportSetup({ open, onClose, types, onCreate, returnFocusRef }) {
   if (!open) return null;
 
   const jobValid = isValidJob(draft.jobNo);
+  const importedReport = findImportedInvite(reports, draft);
+  const validDates = Number.isFinite(new Date(draft.startAt).getTime()) && Number.isFinite(new Date(draft.endAt).getTime());
   const endBeforeStart = new Date(draft.endAt) < new Date(draft.startAt);
-  const canCreate = jobValid && !!draft.tripType && !!draft.model && !endBeforeStart;
+  const canCreate = jobValid && !!draft.tripType && !!draft.model && validDates && !endBeforeStart && !importedReport;
 
   const handleSubmit = () => {
     if (!canCreate) return;
@@ -988,13 +995,18 @@ function ReportSetup({ open, onClose, types, onCreate, returnFocusRef }) {
     });
   };
 
+  const applyInvite = (imported) => {
+    setInviteError("");
+    setDraft((previous) => ({ ...previous, ...imported }));
+  };
+
   const handleInviteFile = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
     setInviteError("");
     try {
       const imported = parseTripInvite(await file.text());
-      setDraft((previous) => ({ ...previous, ...imported }));
+      applyInvite(imported);
     } catch (error) {
       setInviteError(error instanceof Error ? error.message : "Unable to read this calendar invitation.");
     } finally {
@@ -1015,7 +1027,7 @@ function ReportSetup({ open, onClose, types, onCreate, returnFocusRef }) {
       aria-modal="true"
       onMouseDown={handleOverlayMouseDown}
     >
-      <div ref={containerRef} tabIndex={-1} className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl">
+      <div ref={containerRef} tabIndex={-1} className="max-h-[90dvh] overflow-y-auto w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold">New Report</h3>
           <button
@@ -1036,6 +1048,8 @@ function ReportSetup({ open, onClose, types, onCreate, returnFocusRef }) {
             Import Calendar Invite
           </button>
           <span className="ml-3 text-xs text-blue-900">Automatically fills the job, trip type, dates, site, and contacts.</span>
+          <GmailInvitePicker onImport={applyInvite} />
+          {importedReport && <div role="alert" className="mt-2 text-sm text-amber-900">This invitation already has a report. <button type="button" className="underline font-semibold" onClick={() => onOpenExisting?.(importedReport.id)}>Open existing report</button></div>}
           {draft.inviteMeta?.summary && <div className="mt-2 text-xs font-medium text-emerald-700">Loaded: {draft.inviteMeta.summary}</div>}
           {inviteError && <div className="mt-2 text-xs text-red-600">{inviteError}</div>}
         </div>
@@ -1144,6 +1158,15 @@ function ReportSetup({ open, onClose, types, onCreate, returnFocusRef }) {
             {endBeforeStart && <div className="text-xs text-red-500 mt-1">End must be after Start.</div>}
           </div>
         </div>
+        {draft.inviteMeta && <div className="mt-4 space-y-3">
+          <p className="text-xs text-gray-600">Review the imported details. Timed events use this device’s time zone; all-day End shows the last included day. Choose the model if it was not supplied.</p>
+          <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-3"><legend className="font-semibold">Site details</legend>
+            {[["jobName", "Site name"], ["siteStreetAddress", "Street address"], ["siteMailingAddress", "Mailing address"], ["siteCity", "City"], ["siteState", "State"], ["siteZip", "ZIP code"], ["serialNumberText", "Serial number"], ["customerContact", "Site contact"]].map(([key, label]) => <label key={key} className="text-sm">{label}<input className="block w-full rounded-lg border p-2" value={draft.sharedSite?.[key] || ""} onChange={(event) => setDraft((prev) => ({ ...prev, sharedSite: { ...prev.sharedSite, [key]: event.target.value } }))} /></label>)}
+          </fieldset>
+          {[["projectContact", "Project contact"], ["installContact", "Install contact"]].map(([contact, label]) => <fieldset key={contact} className="grid grid-cols-1 md:grid-cols-2 gap-3"><legend className="font-semibold">{label}</legend>
+            {[["name", "Name"], ["company", "Company"], ["phone", "Phone"], ["alternatePhone", "Alternate phone"], ["email", "Email"]].map(([key, title]) => <label key={key} className="text-sm">{label} {title.toLowerCase()}<input className="block w-full rounded-lg border p-2" value={draft.inviteMeta?.[contact]?.[key] || ""} onChange={(event) => setDraft((prev) => ({ ...prev, inviteMeta: { ...prev.inviteMeta, [contact]: { ...prev.inviteMeta[contact], [key]: event.target.value } } }))} /></label>)}
+          </fieldset>)}
+        </div>}
         <div className="mt-6 flex justify-end gap-2">
           <button className="px-4 py-2 rounded-xl border" onClick={onClose}>
             Cancel

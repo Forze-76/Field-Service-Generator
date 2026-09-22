@@ -1,8 +1,7 @@
+import { requestGoogleToken } from "./googleAuth";
 import { identifyTemplate, saveTemplateFile } from "./templateStore";
 
-export const GOOGLE_CLIENT_ID =
-  "284199027991-okml5m042idto96bnbaa27gmb6069qmb.apps.googleusercontent.com";
-
+export { GOOGLE_CLIENT_ID } from "./googleAuth";
 export const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
 
 export const TRIP_TEMPLATE_FOLDERS = {
@@ -25,36 +24,7 @@ export const TRIP_TEMPLATE_FOLDERS = {
 export const templateFolderForTrip = (tripType = "") =>
   TRIP_TEMPLATE_FOLDERS[String(tripType).trim().toLowerCase()] || null;
 
-let identityPromise;
-const loadGoogleIdentity = () => {
-  if (window.google?.accounts?.oauth2) return Promise.resolve();
-  if (identityPromise) return identityPromise;
-  identityPromise = new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.onload = resolve;
-    script.onerror = () => reject(new Error("Unable to load Google sign-in."));
-    document.head.appendChild(script);
-  });
-  return identityPromise;
-};
-
-export async function requestGoogleDriveToken() {
-  await loadGoogleIdentity();
-  return new Promise((resolve, reject) => {
-    const client = window.google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_CLIENT_ID,
-      scope: GOOGLE_DRIVE_SCOPE,
-      callback: (response) => {
-        if (response?.access_token) resolve(response.access_token);
-        else reject(new Error(response?.error_description || "Google Drive access was not granted."));
-      },
-      error_callback: () => reject(new Error("Google sign-in was cancelled.")),
-    });
-    client.requestAccessToken({ prompt: "consent" });
-  });
-}
+export const requestGoogleDriveToken = () => requestGoogleToken(GOOGLE_DRIVE_SCOPE);
 
 const driveFetch = async (url, token) => {
   const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
