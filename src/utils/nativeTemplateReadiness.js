@@ -1,3 +1,4 @@
+import { exportHeader, exportFsrData, entryText } from "./exportData.js";
 import {
   ensureAcceptanceCertificationData,
   ensureMotorTestData,
@@ -13,18 +14,19 @@ const site = (report) => report?.sharedSite || {};
 
 const commonFields = (report) => [
   ["Job number", report?.jobNo],
-  ["Serial number", site(report).serialNumberText || report?.serialNumber],
+  ["Serial number", exportHeader(report).serial],
   ["Model", report?.model],
   ["Report date", report?.startAt],
 ];
 
 const documentFields = (templateId, report, user) => {
   if (templateId === "field-service-report" || templateId === "internal-field-service-report") {
-    const entries = findDoc(report, "Field Service Report")?.data?.entries || [];
+    const data = exportFsrData(report, templateId === "internal-field-service-report");
+    const entries = data.entries;
     return [
       ["Company name", site(report).jobName],
       ["Site address", site(report).siteStreetAddress],
-      ["Report details", entries.some((entry) => present(entry.note || entry.followUp?.details || entry.documentRequest?.note || entry.commentary || entry.title))],
+      ["Report details", present(data.details.workSummary) || entries.some((entry) => present(entryText(entry)) || entry.photos?.length)],
     ];
   }
   if (templateId === "service-summary") {
@@ -70,7 +72,7 @@ const documentFields = (templateId, report, user) => {
 };
 
 export const missingFieldsForTemplate = (templateId, report, user) =>
-  [...commonFields(report), ...documentFields(templateId, report, user)]
+  [...commonFields(report), ["Technician", user?.name], ...documentFields(templateId, report, user)]
     .filter(([, value]) => !present(value))
     .map(([label]) => label);
 

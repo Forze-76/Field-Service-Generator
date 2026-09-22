@@ -1,4 +1,6 @@
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, PDFTextField, PDFCheckBox, PDFSignature, PDFName, StandardFonts } from "pdf-lib";
+import { createDocxExport } from "./docxExport.js";
+import { exportHeader, partsLaborRows, templateIdentifier, dateDisplay, findExportDoc as findDoc } from "./exportData.js";
 import JSZip from "jszip";
 import {
   ensureAcceptanceCertificationData,
@@ -16,22 +18,57 @@ const blobBytes = (blob) => {
     reader.readAsArrayBuffer(blob);
   });
 };
-const dateDisplay = (value) => {
-  if (!value) return "";
-  const parts = String(value).slice(0, 10).split("-");
-  return parts.length === 3 ? `${parts[1]}/${parts[2]}/${parts[0]}` : String(value);
-};
-const findDoc = (report, name) =>
-  (report.documents || []).find((doc) => (doc.name || "").toLowerCase() === name.toLowerCase());
 const shared = (report) => report.sharedSite || {};
 
+const pdfContexts = new WeakMap();
+const wrapPdfText = (value, font, size, width) => {
+  const lines = [];
+  for (const source of String(value).split(/\r?\n/)) {
+    let line = '';
+    for (const word of source.split(/\s+/)) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (font.widthOfTextAtSize(candidate, size) <= width) { line = candidate; continue; }
+      if (line) lines.push(line);
+      line = '';
+      for (const char of word) {
+        if (font.widthOfTextAtSize(line + char, size) > width) { lines.push(line); line = ''; }
+        line += char;
+      }
+    }
+    lines.push(line);
+  }
+  return lines;
+};
 const safeSetText = (form, name, value) => {
-  try {
-    form.getTextField(name).setText(text(value));
-  } catch {
-    // Template revisions can omit optional fields.
+  const valueText = text(value);
+  const field = form.getFieldMaybe(name);
+  const context = pdfContexts.get(form);
+  if (!(field instanceof PDFTextField)) {
+    if (valueText) context?.extra.push([name, valueText]);
+    return;
+  }
+  // Optional fields may be absent; real encoding/length errors must not be hidden.
+  field.setMaxLength(undefined);
+  const rectangles = field.acroField.getWidgets().map(widget => widget.getRectangle());
+  const fitsAt = size => rectangles.every(rect => {
+    const width = Math.max(1, rect.width - 6);
+    const lines = wrapPdfText(valueText, context.font, size, width);
+    return field.isMultiline() ? lines.length * (size + 1) <= rect.height : lines.length === 1;
+  });
+  const size = fitsAt(9) ? 9 : 8;
+  if (valueText && !fitsAt(size)) {
+    context.extra.push([name, valueText]);
+    const marker = rectangles.every(rect => context.font.widthOfTextAtSize('See continuation', 8) <= rect.width - 4) ? 'See continuation' : '*';
+    field.setText(marker);
+    context.sizes.set(name, 8);
+    field.setFontSize(8);
+  } else {
+    field.setText(valueText);
+    context.sizes.set(name, size);
+    field.setFontSize(size);
   }
 };
+
 const safeCheck = (form, name, checked) => {
   try {
     const field = form.getCheckBox(name);
@@ -45,16 +82,21 @@ const safeCheck = (form, name, checked) => {
 const modelFields = ["B", "D", "DB", "F", "M", "MQ", "21", "CV"];
 const fillCommonPdf = (form, report) => {
   const site = shared(report);
-  safeSetText(form, "PFlow Serial Number", site.serialNumberText || report.serialNumber || "");
-  safeSetText(form, "Job Name", site.jobName || report.jobNo);
+  safeSetText(form, "PFlow Serial Number", exportHeader(report).serial);
+  if (form.getFieldMaybe("Job Name")) safeSetText(form, "Job Name", site.jobName || "");
   safeSetText(form, "Site Street Address", site.siteStreetAddress);
-  safeSetText(form, "Site Mailing Address", site.siteMailingAddress);
+  if (form.getFieldMaybe("Site Mailing Address")) safeSetText(form, "Site Mailing Address", site.siteMailingAddress);
   safeSetText(form, "Site City", site.siteCity);
   safeSetText(form, "State", site.siteState);
   safeSetText(form, "Zip Code", site.siteZip);
-  modelFields.forEach((model) => safeCheck(form, model, report.model === model));
-  if (!modelFields.includes(report.model)) safeSetText(form, "Other", report.model);
-  if (!modelFields.includes(report.model)) safeSetText(form, "Other Model", report.model);
+  if (!form.getFieldMaybe('Check Box1')) {
+    const supported = modelFields.filter(model => form.getFieldMaybe(model) instanceof PDFCheckBox);
+    supported.forEach(model => safeCheck(form, model, report.model === model));
+    if (!supported.includes(report.model)) {
+      const other = ['Other', 'Other Model'].find(name => form.getFieldMaybe(name));
+      if (other) safeSetText(form, other, report.model);
+    }
+  }
 };
 
 const fillServiceSummary = (form, report, user) => {
@@ -73,7 +115,8 @@ const fillServiceSummary = (form, report, user) => {
   safeSetText(form, "PM Contact", data.pmContact || data.supervisorNameEmail);
   safeSetText(form, "Customer Contact", data.customerContact || data.managerNameEmail);
   safeSetText(form, "Acceptance date", dateDisplay(data.acceptanceDate));
-  safeSetText(form, "Tech 1", user?.name || "F. Madera");
+  safeSetText(form, "Tech 1", user?.name || "");
+  safeSetText(form, "Parts replaced", partsLaborRows(report).filter(row => row.action === "Installed").map(row => row.description).join("\n"));
 };
 
 const fillAcceptance = (form, report, user) => {
@@ -81,16 +124,18 @@ const fillAcceptance = (form, report, user) => {
   const data = ensureAcceptanceCertificationData(findDoc(report, "Acceptance Certificate")?.data);
   safeSetText(form, "Customer Contact Name", data.customerContactName);
   safeSetText(form, "Customer Title", data.customerContactTitle);
-  safeSetText(form, "Phone", data.customerContactPhone);
+  const phone = text(data.customerContactPhone).replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
+  safeSetText(form, "Area Code", phone.length === 10 ? phone.slice(0,3) : '');
+  safeSetText(form, "Phone", phone.length === 10 ? `${phone.slice(3,6)}-${phone.slice(6)}` : data.customerContactPhone);
   safeSetText(form, "Extension", data.customerContactExt);
   safeSetText(form, "EMail", data.customerContactEmail);
   safeSetText(form, "Load Capacity", data.loadCapacity);
   safeSetText(form, "Startup Date", dateDisplay(data.startupDate));
   safeSetText(form, "Percentage", data.loadTest.percent);
   safeCheck(form, "Load Test Y", data.loadTest.yes);
-  safeCheck(form, "1", !data.loadTest.yes);
+  safeCheck(form, "Check Box9.0.1", findDoc(report, "Acceptance Certificate")?.data?.loadTest?.yes === false);
   safeCheck(form, "Op Test Y", data.operationTestYes);
-  safeCheck(form, "Op Test N", !data.operationTestYes);
+  safeCheck(form, "Op Test N", findDoc(report, "Acceptance Certificate")?.data?.operationTestYes === false);
   safeCheck(form, "Gate Op Y", data.gateInterlock === "yes");
   safeCheck(form, "Gate Op N", data.gateInterlock === "no");
   safeCheck(form, "Gate Op NA", data.gateInterlock === "na");
@@ -106,14 +151,14 @@ const fillAcceptance = (form, report, user) => {
   safeSetText(form, "Customer Job Title", data.acceptedByTitle);
   safeSetText(form, "Customer Company", data.acceptedByCompany || data.customerCompany);
   safeSetText(form, "Acceptance Date", dateDisplay(data.acceptanceDate));
-  safeSetText(form, "Name_3", data.pflowRepName || user?.name || "F. Madera");
+  safeSetText(form, "Name_3", data.pflowRepName || user?.name || "");
   safeSetText(form, "Company_5", "PFlow Industries");
   safeSetText(form, "Acceptance Notes", data.acceptanceNotes);
 };
 
 const fillMotorTest = (form, report, user) => {
   fillCommonPdf(form, report);
-  safeSetText(form, "CustomerUser", shared(report).jobName || report.jobNo);
+  safeSetText(form, "CustomerUser", shared(report).jobName || "");
   if (!["B", "D", "DB", "F", "M", "MQ", "21", "CV"].includes(report.model)) {
     safeSetText(form, "Text9", report.model);
   }
@@ -126,7 +171,7 @@ const fillMotorTest = (form, report, user) => {
     "Schematic Number": data.motor.schematicNumber, HP: data.motor.hp, VAC: data.motor.vac,
     RPM: data.motor.rpm, FLA: data.motor.fla, "Rated Load": data.ratedLoad,
     "Tested Load": data.testedLoad, Date: dateDisplay(data.testDate),
-    Name: data.testedByName || user?.name || "F. Madera", Title: data.testedByTitle || "Field Service Tech",
+    Name: data.testedByName || user?.name || "", Title: data.testedByTitle || "Field Service Tech",
     "Service Company": data.serviceCompany || "PFlow Industries",
     "L1-L2": data.voltIncoming.l1l2, "L1-L3": data.voltIncoming.l1l3,
     "L2-L3": data.voltIncoming.l2l3, "L1-GND": data.voltIncoming.l1g,
@@ -145,107 +190,62 @@ const fillMotorTest = (form, report, user) => {
 };
 
 export async function fillPdfTemplate(blob, templateId, report, user) {
+  if (!['service-summary', 'acceptance-certification', 'motor-test'].includes(templateId)) throw new Error('Unsupported PDF template. Synchronize the approved templates again.');
   const pdf = await PDFDocument.load(await blobBytes(blob));
   const form = pdf.getForm();
-  if (templateId === "service-summary") fillServiceSummary(form, report, user);
-  if (templateId === "acceptance-certification") fillAcceptance(form, report, user);
-  if (templateId === "motor-test") fillMotorTest(form, report, user);
-  form.updateFieldAppearances();
-  return new Blob([await pdf.save()], { type: "application/pdf" });
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const extra = [];
+  pdfContexts.set(form, { font, extra, sizes: new Map() });
+  for (const field of form.getFields()) {
+    if (field instanceof PDFSignature && field.acroField.dict.has(PDFName.of('V'))) throw new Error('Use an unsigned blank PDF template; signed documents cannot be used as templates.');
+    if (field instanceof PDFTextField) { field.setMaxLength(undefined); field.setText(''); }
+    if (field instanceof PDFCheckBox) field.uncheck();
+  }
+  if (templateId === 'service-summary') {
+    fillServiceSummary(form, report, user);
+    const data = findDoc(report, 'Service Summary')?.data || {};
+    (data.timeLogs || []).forEach((row, index) => {
+      if (index >= 7 && [row.date,row.timeIn,row.timeOut,row.travelTime,row.signature].some(text)) extra.push([`Time log ${index + 1}`, [dateDisplay(row.date), `Time in: ${row.timeIn || ''}`, `Time out: ${row.timeOut || ''}`, `Travel time: ${row.travelTime || ''}`].join(' | ')]);
+      // Text initials are retained without impersonating a cryptographic signature.
+      if (text(row.signature)) extra.push([`Time log ${index + 1} typed name/initials`, `${dateDisplay(row.date)} - ${row.signature}`]);
+    });
+  }
+  if (templateId === 'acceptance-certification') fillAcceptance(form, report, user);
+  if (templateId === 'motor-test') fillMotorTest(form, report, user);
+  const h = exportHeader(report,user);
+  const contextLine = `Job: ${h.jobNo} | Report date: ${h.date} | Technician: ${h.technician}`;
+  // The motor form clips its upper margin; use its clear band below the letterhead.
+  for (const page of pdf.getPages()) {
+    const crop = page.getCropBox();
+    const lines = wrapPdfText(contextLine,font,8,crop.width-48);
+    lines.forEach((line,i) => page.drawText(line,{ x:crop.x+24,y:crop.y+crop.height-(templateId === 'motor-test' ? 82 : 12)-i*9,size:8,font }));
+  }
+  let page, y;
+  const newPage = () => {
+    page=pdf.addPage([612,792]); y=752;
+    page.drawText('Service document continuation',{x:42,y,size:14,font}); y-=22;
+    for(const line of wrapPdfText(`${h.jobNo} | Serial: ${h.serial} | Model: ${h.model} | ${h.date}`,font,10,528)) {page.drawText(line,{x:42,y,size:10,font});y-=14;}
+    y-=14;
+  };
+  for (const [label,value] of extra) {
+    if (!page || y < 90) newPage();
+    for(const line of wrapPdfText(`${label}: ${value}`,font,10,528)) {
+      if(y<48) newPage();
+      page.drawText(line,{x:42,y,size:10,font}); y-=14;
+    }
+    y-=10;
+  }
+  for (const field of form.getFields()) if (field instanceof PDFTextField) {
+    const size = pdfContexts.get(form).sizes.get(field.getName()) || 9;
+    field.acroField.setDefaultAppearance(`/${font.name} ${size} Tf 0 g`);
+    for (const widget of field.acroField.getWidgets()) widget.setDefaultAppearance(`/${font.name} ${size} Tf 0 g`);
+  }
+  form.updateFieldAppearances(font);
+  return new Blob([await pdf.save()], { type: 'application/pdf' });
 }
 
-const replaceAcrossTextNodes = (nodes, needle, value) => {
-  const parts = nodes.map((node) => node.textContent || "");
-  const combined = parts.join("");
-  const start = combined.indexOf(needle);
-  if (start < 0) return false;
-  const end = start + needle.length;
-  let offset = 0;
-  let startNode = -1;
-  let endNode = -1;
-  let startOffset = 0;
-  let endOffset = 0;
-
-  parts.forEach((part, index) => {
-    const next = offset + part.length;
-    if (startNode < 0 && start >= offset && start < next) {
-      startNode = index;
-      startOffset = start - offset;
-    }
-    if (endNode < 0 && end > offset && end <= next) {
-      endNode = index;
-      endOffset = end - offset;
-    }
-    offset = next;
-  });
-  if (startNode < 0 || endNode < 0) return false;
-
-  if (startNode === endNode) {
-    nodes[startNode].textContent = `${parts[startNode].slice(0, startOffset)}${value}${parts[startNode].slice(endOffset)}`;
-    return true;
-  }
-  nodes[startNode].textContent = `${parts[startNode].slice(0, startOffset)}${value}`;
-  for (let index = startNode + 1; index < endNode; index += 1) nodes[index].textContent = "";
-  nodes[endNode].textContent = parts[endNode].slice(endOffset);
-  return true;
-};
-
-const setParagraphText = (document, needle, value, { exact = false, all = false } = {}) => {
-  const paragraphs = [...document.getElementsByTagNameNS("*", "p")];
-  const matches = paragraphs.filter((item) => {
-    if (item.getElementsByTagNameNS("*", "p").length) return false;
-    const current = [...item.getElementsByTagNameNS("*", "t")].map((node) => node.textContent || "").join("");
-    return exact ? current.trim() === needle : current.includes(needle);
-  });
-  let changed = false;
-  for (const paragraph of matches) {
-    const nodes = [...paragraph.getElementsByTagNameNS("*", "t")];
-    const current = nodes.map((node) => node.textContent || "").join("");
-    changed = replaceAcrossTextNodes(nodes, exact ? current : needle, value) || changed;
-    if (!all) break;
-  }
-  return changed;
-};
-
-const setExactTextNodes = (document, needle, value) => {
-  let changed = false;
-  [...document.getElementsByTagNameNS("*", "t")].forEach((node) => {
-    if ((node.textContent || "").trim() === needle) {
-      node.textContent = value;
-      changed = true;
-    }
-  });
-  return changed;
-};
-
-export async function fillDocxTemplate(blob, report, user, { internal = false } = {}) {
-  const zip = await JSZip.loadAsync(await blobBytes(blob));
-  const path = "word/document.xml";
-  const xml = await zip.file(path).async("text");
-  const document = new DOMParser().parseFromString(xml, "application/xml");
-  const site = shared(report);
-  const entries = findDoc(report, "Field Service Report")?.data?.entries || [];
-  const details = entries.map((entry, index) => {
-    const value = entry.note || entry.followUp?.details || entry.documentRequest?.note || entry.commentary || entry.title;
-    return value ? `${index + 1}. ${text(value)}` : "";
-  }).filter(Boolean).join("\n");
-  setExactTextNodes(document, "MM/DD/YY", dateDisplay(report.startAt));
-  const replacements = [
-    ["Name of Company", site.jobName || report.jobNo],
-    ["Address", site.siteStreetAddress],
-    ["City, State, Zip", [site.siteCity, site.siteState, site.siteZip].filter(Boolean).join(", ")],
-    ["Contact Name | Title | Contact Phone", site.customerContact || ""],
-    ["Name#1 & Name#2", user?.name || "F. Madera", { all: true }],
-    ["Serial Number: XXXXX & XXXXX", `Serial Number: ${site.serialNumberText || ""}`, { all: true }],
-    ["Model Type: X", `Model Type: ${report.model || ""}`, { all: true }],
-    ["To Inspect/PM/Service J#XXXXX & XXXXX", `${report.tripType || "Service"} ${report.jobNo || ""}`],
-    ["MM/DD/YY J#XXXXX", `${dateDisplay(report.startAt)} ${report.jobNo || ""}`, { all: true }],
-    ["Detail", details || "No report details entered.", { exact: true }],
-    ["Mini Description", internal ? "Internal field service notes" : "Summary of Parts and/or Labor"],
-  ];
-  replacements.forEach(([needle, value, options]) => setParagraphText(document, needle, value, options));
-  zip.file(path, new XMLSerializer().serializeToString(document));
-  return zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+export async function fillDocxTemplate(blob, report, user, options = {}) {
+  return createDocxExport(await blobBytes(blob), report, user, options);
 }
 
 const setCellInlineString = (sheet, reference, value) => {
@@ -279,7 +279,7 @@ export async function fillXlsxTemplate(blob, report, user) {
   const values = {
     C6: dateDisplay(report.startAt), B9: report.jobNo, C9: report.model,
     D9: site.jobName, E9: [site.siteCity, site.siteState].filter(Boolean).join(", "),
-    G9: user?.name || "F. Madera",
+    G9: user?.name || "",
   };
   Object.entries(values).forEach(([cell, value]) => setCellInlineString(sheet, cell, value));
   zip.file(sheetPath, new XMLSerializer().serializeToString(sheet));
@@ -287,8 +287,9 @@ export async function fillXlsxTemplate(blob, report, user) {
 }
 
 export async function buildNativeDocument(record, report, user) {
-  if (record.format === "pdf") return fillPdfTemplate(record.blob, record.id, report, user);
-  if (record.format === "docx") return fillDocxTemplate(record.blob, report, user, { internal: record.id.startsWith("internal-") });
+  const templateId = templateIdentifier(record);
+  if (record.format === "pdf") return fillPdfTemplate(record.blob, templateId, report, user);
+  if (record.format === "docx") return fillDocxTemplate(record.blob, report, user, { internal: templateId.startsWith("internal-") });
   if (record.format === "xlsx") return fillXlsxTemplate(record.blob, report, user);
   throw new Error(`Unsupported template format: ${record.format}`);
 }
