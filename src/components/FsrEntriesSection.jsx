@@ -507,6 +507,7 @@ function FsrEntriesSection({
             <Camera size={16} /> Add Issue
           </button>
           <button
+            id="fsr-add-entry"
             className="px-4 py-2 rounded-xl bg-blue-600 text-white flex items-center gap-2 text-sm"
             onClick={(event) => openModal(event.currentTarget)}
           >

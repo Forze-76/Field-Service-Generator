@@ -10,7 +10,7 @@ import {
 import { requestGoogleDriveToken, syncGoogleTemplatesForTrip } from "../utils/googleDriveTemplates";
 import { templateReadiness } from "../utils/nativeTemplateReadiness";
 
-export default function TemplateManagerModal({ open, onClose, report, technician, returnFocusRef }) {
+export default function TemplateManagerModal({ open, onClose, report, technician, returnFocusRef, onResolveMissing, onSetDocumentDone }) {
   const containerRef = useRef(null);
   const [stored, setStored] = useState([]);
   const [busyId, setBusyId] = useState("");
@@ -53,13 +53,14 @@ export default function TemplateManagerModal({ open, onClose, report, technician
     }
   };
 
-  const handleExport = async (record) => {
+  const handleExport = async (row) => {
+    const { record, readiness } = row;
     if (!report) return;
     setBusyId(record.id);
     setMessage("");
     try {
       const result = await buildNativeDocument(record, report, technician);
-      await shareOrDownloadDocument(result, outputFilename(record, report));
+      await shareOrDownloadDocument(result, outputFilename(record, report, { draft: readiness.status !== "completed" }));
     } catch (error) {
       if (error?.name !== "AbortError") {
         setMessage(error instanceof Error ? error.message : "Unable to create the native document.");
@@ -70,7 +71,7 @@ export default function TemplateManagerModal({ open, onClose, report, technician
   };
 
   const handleExportReady = async () => {
-    const ready = exportRows.filter((row) => row.readiness.ready);
+    const ready = exportRows.filter((row) => row.readiness.status === "completed");
     if (!ready.length) return;
     setBusyId("batch");
     setMessage("");
@@ -98,10 +99,10 @@ export default function TemplateManagerModal({ open, onClose, report, technician
           <h3 id="template-manager-title" className="flex items-center gap-2 text-xl font-bold"><FileArchive size={20} /> Export Documents</h3>
           <button className="rounded-full p-2 hover:bg-gray-100" onClick={onClose} aria-label="Close export documents"><X size={18} /></button>
         </div>
-        <p className="mt-2 text-sm text-gray-600">Review document readiness, synchronize approved templates, and export the original PDF, DOCX, or XLSX files.</p>
+        <p className="mt-2 text-sm text-gray-600">Fix missing information here, mark finished documents complete, and export native PDF, DOCX, or XLSX files. Unfinished exports are labeled DRAFT.</p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <button className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-white disabled:opacity-50" onClick={handleExportReady} disabled={!!busyId || !report || !exportRows.some((row) => row.readiness.ready)}>
-            <Download size={17} /> {busyId === "batch" ? "Creating…" : "Export All Ready"}
+          <button className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-white disabled:opacity-50" onClick={handleExportReady} disabled={!!busyId || !report || !exportRows.some((row) => row.readiness.status === "completed")}>
+            <Download size={17} /> {busyId === "batch" ? "Creating…" : "Export All Completed"}
           </button>
           <button className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-slate-700 disabled:opacity-50" onClick={handleSync} disabled={!!busyId || !report}>
             {busyId === "sync" ? <RefreshCcw className="animate-spin" size={17} /> : <CloudDownload size={17} />}
@@ -112,25 +113,29 @@ export default function TemplateManagerModal({ open, onClose, report, technician
         {message && <div className="mt-4 rounded-xl border bg-gray-50 px-4 py-3 text-sm text-gray-700">{message}</div>}
 
         <div className="mt-5 space-y-2">
-          {exportRows.map(({ definition, record, readiness }) => {
+          {exportRows.map((row) => {
+            const { definition, record, readiness } = row;
             return (
               <div key={definition.id} className="rounded-xl border p-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2 font-medium">
-                      {readiness.ready ? <CheckCircle2 size={16} className="text-emerald-600" /> : <AlertTriangle size={16} className="text-amber-600" />}
+                      {readiness.status === "completed" ? <CheckCircle2 size={16} className="text-emerald-600" /> : <AlertTriangle size={16} className="text-amber-600" />}
                       {definition.label}
+                      {record && <span className={`rounded-full px-2 py-0.5 text-[11px] ${readiness.status === "completed" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{readiness.status === "completed" ? "Completed" : readiness.status === "draft" ? "Ready to mark complete" : "Draft"}</span>}
                     </div>
                   <div className="text-xs text-gray-500">{record ? `${record.filename} · ${definition.format.toUpperCase()} · ${record.source === "google-drive" ? "Google Drive" : "Device cache"}` : "Not available for this report"}</div>
                   </div>
                   {record && report && (
-                    <button className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm disabled:opacity-50" onClick={() => handleExport(record)} disabled={!!busyId}>
-                      <Download size={15} /> {busyId === record.id ? "Creating…" : "Export"}
+                    <button className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm disabled:opacity-50" onClick={() => handleExport(row)} disabled={!!busyId}>
+                      <Download size={15} /> {busyId === record.id ? "Creating…" : readiness.status === "completed" ? "Export" : "Export Draft"}
                     </button>
                   )}
                 </div>
                 {readiness.status === "missing-template" && <p className="mt-2 text-xs text-amber-700">Synchronize templates before exporting this document.</p>}
-                {readiness.missing.length > 0 && <p className="mt-2 text-xs text-amber-700">Missing: {readiness.missing.join(", ")}.</p>}
+                {readiness.missingItems.length > 0 && <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-amber-700"><span>Missing:</span>{readiness.missingItems.map((missing) => <button key={missing.label} type="button" className="rounded border border-amber-300 bg-amber-50 px-2 py-1 font-medium underline" onClick={() => onResolveMissing?.(missing)}>{missing.label}</button>)}</div>}
+                {readiness.status === "draft" && <button type="button" className="mt-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800" onClick={() => onSetDocumentDone?.(definition.id, true)}>Mark document complete</button>}
+                {readiness.status === "completed" && <button type="button" className="mt-2 text-xs text-gray-600 underline" onClick={() => onSetDocumentDone?.(definition.id, false)}>Return to draft</button>}
               </div>
             );
           })}

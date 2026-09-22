@@ -115,7 +115,7 @@ const fillServiceSummary = (form, report, user) => {
   safeSetText(form, "PM Contact", data.pmContact || data.supervisorNameEmail);
   safeSetText(form, "Customer Contact", data.customerContact || data.managerNameEmail);
   safeSetText(form, "Acceptance date", dateDisplay(data.acceptanceDate));
-  safeSetText(form, "Tech 1", user?.name || "");
+  safeSetText(form, "Tech 1", exportHeader(report, user).technician);
   safeSetText(form, "Parts replaced", partsLaborRows(report).filter(row => row.action === "Installed").map(row => row.description).join("\n"));
 };
 
@@ -151,7 +151,7 @@ const fillAcceptance = (form, report, user) => {
   safeSetText(form, "Customer Job Title", data.acceptedByTitle);
   safeSetText(form, "Customer Company", data.acceptedByCompany || data.customerCompany);
   safeSetText(form, "Acceptance Date", dateDisplay(data.acceptanceDate));
-  safeSetText(form, "Name_3", data.pflowRepName || user?.name || "");
+  safeSetText(form, "Name_3", data.pflowRepName || exportHeader(report, user).technician);
   safeSetText(form, "Company_5", "PFlow Industries");
   safeSetText(form, "Acceptance Notes", data.acceptanceNotes);
 };
@@ -171,7 +171,7 @@ const fillMotorTest = (form, report, user) => {
     "Schematic Number": data.motor.schematicNumber, HP: data.motor.hp, VAC: data.motor.vac,
     RPM: data.motor.rpm, FLA: data.motor.fla, "Rated Load": data.ratedLoad,
     "Tested Load": data.testedLoad, Date: dateDisplay(data.testDate),
-    Name: data.testedByName || user?.name || "", Title: data.testedByTitle || "Field Service Tech",
+    Name: data.testedByName || exportHeader(report, user).technician, Title: data.testedByTitle || "Field Service Tech",
     "Service Company": data.serviceCompany || "PFlow Industries",
     "L1-L2": data.voltIncoming.l1l2, "L1-L3": data.voltIncoming.l1l3,
     "L2-L3": data.voltIncoming.l2l3, "L1-GND": data.voltIncoming.l1g,
@@ -279,7 +279,7 @@ export async function fillXlsxTemplate(blob, report, user) {
   const values = {
     C6: dateDisplay(report.startAt), B9: report.jobNo, C9: report.model,
     D9: site.jobName, E9: [site.siteCity, site.siteState].filter(Boolean).join(", "),
-    G9: user?.name || "",
+    G9: exportHeader(report, user).technician,
   };
   Object.entries(values).forEach(([cell, value]) => setCellInlineString(sheet, cell, value));
   zip.file(sheetPath, new XMLSerializer().serializeToString(sheet));
@@ -328,8 +328,8 @@ export async function shareOrDownloadDocuments(documents) {
   });
 }
 
-export const outputFilename = (record, report) => {
+export const outputFilename = (record, report, { draft = false } = {}) => {
   const date = String(report.startAt || new Date().toISOString()).slice(0, 10).replace(/-/g, ".");
   const job = text(report.jobNo || "JXXXXX").replace(/[^A-Za-z0-9#-]/g, "-");
-  return `${date} ${record.label} - ${job}.${record.format}`;
+  return `${draft ? "DRAFT " : ""}${date} ${record.label} - ${job}.${record.format}`;
 };

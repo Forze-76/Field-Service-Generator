@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import JSZip from 'jszip';
 import { PDFDocument } from 'pdf-lib';
-import { buildNativeDocument, fillDocxTemplate, fillPdfTemplate } from './nativeTemplates.js';
+import { buildNativeDocument, fillDocxTemplate, fillPdfTemplate, outputFilename } from './nativeTemplates.js';
 import { missingFieldsForTemplate } from './nativeTemplateReadiness.js';
 
 const bytes = blob => new Promise((resolve,reject) => { const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsArrayBuffer(blob); });
@@ -59,6 +59,12 @@ describe('complete native exports',()=>{
  it('does not invent a technician or transform a malformed serial into a number',async()=>{
   const r=report();r.serialNumber='J#12345';expect(missingFieldsForTemplate('field-service-report',r,{})).toEqual(expect.arrayContaining(['Technician','Serial number']));
   const output=await fillDocxTemplate(await template(),r,{});const z=await JSZip.loadAsync(await bytes(output));const t=bodyText(await z.file('word/document.xml').async('text'));expect(t).not.toContain('F. Madera');expect(t).not.toContain('Serial Number: J#');
+ });
+ it('uses a report technician override and clearly labels draft filenames',async()=>{
+  const r=report();r.technicianName='Override Tech';
+  const output=await fillDocxTemplate(await template(),r,{name:'Account Tech'});const z=await JSZip.loadAsync(await bytes(output));const t=bodyText(await z.file('word/document.xml').async('text'));
+  expect(t).toContain('Override Tech');expect(t).not.toContain('Account Tech');
+  expect(outputFilename({label:'Field Service Report',format:'docx'},r,{draft:true})).toMatch(/^DRAFT /);
  });
  it('fits the actual small percentage field and uses Other Model for unsupported checkboxes',async()=>{
   const pdf=await PDFDocument.create();const page=pdf.addPage();const form=pdf.getForm();

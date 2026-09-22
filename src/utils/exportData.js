@@ -11,7 +11,7 @@ export const exportHeader = (report, user) => {
   const rawSerial = text(site.serialNumberText || report?.serialNumber);
   // Never turn an unrecognized identifier into a different, apparently valid serial.
   const serial = rawSerial && /^\d+(?:[\s,;/&-]+\d+)*$/.test(rawSerial) ? rawSerial : '';
-  return { ...site, serial, jobNo: text(report?.jobNo), model: text(report?.model), date: dateDisplay(report?.startAt), technician: text(user?.name) };
+  return { ...site, serial, jobNo: text(report?.jobNo), model: text(report?.model), date: dateDisplay(report?.startAt), technician: text(report?.technicianName || user?.name) };
 };
 export const exportFsrData = (report, internal = false) => {
   const raw = findExportDoc(report, 'Field Service Report')?.data;

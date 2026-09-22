@@ -343,9 +343,9 @@ function MotorTestForm({
             <TinyLabel>Test Date</TinyLabel>
             <TinyInput
               type="date"
+              aria-label="Test date"
               value={data.testDate}
               onChange={(event) => updateData({ testDate: event.target.value })}
-              aria-label="Test date"
             />
           </div>
         </div>

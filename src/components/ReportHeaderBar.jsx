@@ -1,6 +1,6 @@
 import React, { useRef } from "react";
 import { BookOpen, Camera } from "lucide-react";
-import { fileToDataURL, formatRange } from "../utils/fsr";
+import { fileToDataURL, toISOInput } from "../utils/fsr";
 
 function ReportHeaderBar({ report, onUpdateReport, onOpenManuals, manualsButtonRef }) {
   const inputRef = useRef(null);
@@ -65,22 +65,25 @@ function ReportHeaderBar({ report, onUpdateReport, onOpenManuals, manualsButtonR
         {/* Info items + Manuals */}
         <div className="flex-1 flex items-start justify-between gap-6">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-sm text-gray-500">Job #</div>
-              <div className="font-semibold">{report.jobNo}</div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-500">Model</div>
-              <div className="font-semibold">{report.model || '-'}</div>
-            </div>
+            <label className="text-sm text-gray-500">Job #
+              <input id="report-job-number" className="mt-1 w-full rounded-lg border px-2 py-1 font-semibold text-gray-900" value={report.jobNo || ""} onChange={(event) => onUpdateReport?.({ jobNo: event.target.value })} />
+            </label>
+            <label className="text-sm text-gray-500">Model
+              <input id="report-model" className="mt-1 w-full rounded-lg border px-2 py-1 font-semibold text-gray-900" value={report.model || ""} onChange={(event) => onUpdateReport?.({ model: event.target.value })} />
+            </label>
             <div>
               <div className="text-sm text-gray-500">Trip Type</div>
               <div className="font-semibold">{report.tripType}</div>
             </div>
-            <div>
-              <div className="text-sm text-gray-500">Dates</div>
-              <div className="font-semibold">{formatRange(report.startAt, report.endAt)}</div>
-            </div>
+            <label className="text-sm text-gray-500">Start date
+              <input id="report-start-date" type="datetime-local" className="mt-1 w-full rounded-lg border px-2 py-1 font-semibold text-gray-900" value={toISOInput(report.startAt)} onChange={(event) => event.target.value && onUpdateReport?.({ startAt: new Date(event.target.value).toISOString() })} />
+            </label>
+            <label className="text-sm text-gray-500">End date
+              <input id="report-end-date" type="datetime-local" className="mt-1 w-full rounded-lg border px-2 py-1 font-semibold text-gray-900" value={toISOInput(report.endAt)} onChange={(event) => event.target.value && onUpdateReport?.({ endAt: new Date(event.target.value).toISOString() })} />
+            </label>
+            <label className="col-span-2 text-sm text-gray-500">Technician
+              <input id="report-technician" className="mt-1 w-full rounded-lg border px-2 py-1 font-semibold text-gray-900" value={report.technicianName ?? ""} placeholder="Uses signed-in technician when blank" onChange={(event) => onUpdateReport?.({ technicianName: event.target.value })} />
+            </label>
           </div>
           <div className="flex items-start">
             <button

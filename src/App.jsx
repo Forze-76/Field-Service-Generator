@@ -99,6 +99,7 @@ function Workspace({
   const deleteTriggerRef = useRef(null);
   const backupTriggerRef = useRef(null);
   const templatesTriggerRef = useRef(null);
+  const pendingExportFocusRef = useRef("");
   const reportsRef = useRef(reports);
   const pendingSaveTimerRef = useRef(null);
   const saveQueueRef = useRef(Promise.resolve());
@@ -534,6 +535,43 @@ function Workspace({
     [activeDocIdMemo, updateDocById],
   );
 
+  const handleResolveExportField = useCallback((missing) => {
+    const target = missing?.target;
+    if (!target) return;
+    if (target.documentName) {
+      const sourceDocument = selected?.documents?.find((doc) => (doc.name || "").toLowerCase() === target.documentName.toLowerCase());
+      if (sourceDocument) setActiveDocId(sourceDocument.id);
+    }
+    pendingExportFocusRef.current = target.selector;
+    setTemplatesOpen(false);
+  }, [selected?.documents]);
+
+  useEffect(() => {
+    if (templatesOpen || !pendingExportFocusRef.current) return;
+    const selector = pendingExportFocusRef.current;
+    const timer = window.setTimeout(() => {
+      const field = document.querySelector(selector);
+      if (!field) return;
+      pendingExportFocusRef.current = "";
+      field.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      field.focus?.({ preventScroll: true });
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [activeDocId, templatesOpen]);
+
+  const handleSetExportDocumentDone = useCallback((templateId, done) => {
+    const documentName = {
+      "field-service-report": "Field Service Report",
+      "internal-field-service-report": "Field Service Report",
+      "service-summary": "Service Summary",
+      "acceptance-certification": ACCEPTANCE_CERT_DOC_NAME,
+      "motor-test": MOTOR_TEST_DOC_NAME,
+      "inspection-workbook": "Inspection Sheet",
+    }[templateId];
+    if (!documentName) return;
+    updateDocs((documents = []) => documents.map((doc) => (doc.name || "").toLowerCase() === documentName.toLowerCase() ? { ...doc, done } : doc));
+  }, [updateDocs]);
+
   const handleSync = useCallback(() => {
     console.log("Cloud sync placeholder—no server configured.");
     setToast({ id: Date.now(), text: "Cloud sync placeholder—no server configured." });
@@ -896,6 +934,8 @@ function Workspace({
         onClose={() => setTemplatesOpen(false)}
         report={selected}
         technician={currentUser}
+        onResolveMissing={handleResolveExportField}
+        onSetDocumentDone={handleSetExportDocumentDone}
         returnFocusRef={templatesTriggerRef}
       />
     </div>

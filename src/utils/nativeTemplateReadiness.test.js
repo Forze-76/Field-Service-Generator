@@ -20,10 +20,11 @@ const report = {
 
 describe("native template readiness", () => {
   it("marks a populated field service report ready", () => {
-    expect(templateReadiness({ id: "field-service-report" }, { id: "start up:field-service-report" }, report, { name: "F. Madera" })).toEqual({
-      status: "ready",
+    expect(templateReadiness({ id: "field-service-report" }, { id: "start up:field-service-report" }, report, { name: "F. Madera" })).toMatchObject({
+      status: "draft",
       ready: true,
       missing: [],
+      missingItems: [],
     });
   });
 
@@ -42,7 +43,20 @@ describe("native template readiness", () => {
     expect(missingFieldsForTemplate("field-service-report", empty, { name: "F. Madera" })).toContain("Report details");
   });
 
-  it("distinguishes an unavailable template from an incomplete document", () => {
+  it("distinguishes unavailable, incomplete, draft, and completed documents", () => {
     expect(templateReadiness({ id: "service-summary" }, null, report, { name: "F. Madera" }).status).toBe("missing-template");
+    expect(templateReadiness({ id: "motor-test" }, { id: "motor" }, report, { name: "F. Madera" }).status).toBe("incomplete");
+    const completed = { ...report, documents: report.documents.map((doc) => ({ ...doc, done: true })) };
+    expect(templateReadiness({ id: "field-service-report" }, { id: "fsr" }, completed, { name: "F. Madera" }).status).toBe("completed");
+  });
+
+  it("returns navigation targets and uses only numeric lift serials accepted by export", () => {
+    const invalidSerial = { ...report, sharedSite: { ...report.sharedSite, serialNumberText: "M-21136" } };
+    const readiness = templateReadiness({ id: "field-service-report" }, { id: "fsr" }, invalidSerial, { name: "F. Madera" });
+    expect(readiness.missing).toContain("Serial number");
+    expect(readiness.missingItems.find((entry) => entry.label === "Serial number").target).toEqual({
+      documentName: "Service Summary",
+      selector: "#shared-serial-number",
+    });
   });
 });

@@ -1,83 +1,47 @@
 import { exportHeader, exportFsrData, entryText } from "./exportData.js";
-import {
-  ensureAcceptanceCertificationData,
-  ensureMotorTestData,
-  makeEmptyServiceSummaryData,
-} from "./fsr.js";
+import { ensureAcceptanceCertificationData, ensureMotorTestData, makeEmptyServiceSummaryData } from "./fsr.js";
 
-const present = (value) => value === true || (
-  typeof value !== "boolean" && String(value ?? "").trim().length > 0
-);
-const findDoc = (report, name) =>
-  (report?.documents || []).find((doc) => (doc.name || "").toLowerCase() === name.toLowerCase());
+const present = (value) => value === true || (typeof value !== "boolean" && String(value ?? "").trim().length > 0);
+const findDoc = (report, name) => (report?.documents || []).find((doc) => (doc.name || "").toLowerCase() === name.toLowerCase());
 const site = (report) => report?.sharedSite || {};
-
-const commonFields = (report) => [
-  ["Job number", report?.jobNo],
-  ["Serial number", exportHeader(report).serial],
-  ["Model", report?.model],
-  ["Report date", report?.startAt],
-];
-
-const documentFields = (templateId, report, user) => {
-  if (templateId === "field-service-report" || templateId === "internal-field-service-report") {
+const item = (label, value, documentName, selector) => ({ label, value, target: { documentName, selector } });
+const commonFields = (report, user) => {
+  const header = exportHeader(report, user);
+  return [
+    item("Job number", header.jobNo, null, "#report-job-number"),
+    item("Serial number", header.serial, "Service Summary", "#shared-serial-number"),
+    item("Model", header.model, null, "#report-model"),
+    item("Report date", header.date, null, "#report-start-date"),
+    item("Technician", header.technician, null, "#report-technician"),
+  ];
+};
+const documentFields = (templateId, report) => {
+  if (["field-service-report", "internal-field-service-report"].includes(templateId)) {
     const data = exportFsrData(report, templateId === "internal-field-service-report");
-    const entries = data.entries;
-    return [
-      ["Company name", site(report).jobName],
-      ["Site address", site(report).siteStreetAddress],
-      ["Report details", present(data.details.workSummary) || entries.some((entry) => present(entryText(entry)) || entry.photos?.length)],
-    ];
+    return [item("Company name", site(report).jobName, "Service Summary", "#shared-job-name"), item("Site address", site(report).siteStreetAddress, "Service Summary", "#shared-site-address"), item("Report details", present(data.details.workSummary) || data.entries.some((entry) => present(entryText(entry)) || entry.photos?.length), "Field Service Report", "#fsr-add-entry")];
   }
   if (templateId === "service-summary") {
     const data = { ...makeEmptyServiceSummaryData(), ...(findDoc(report, "Service Summary")?.data || {}) };
-    return [
-      ["Company name", site(report).jobName],
-      ["Service performed", data.servicePerformed],
-      ["Time log", (data.timeLogs || []).some((row) => present(row.date) && present(row.timeIn) && present(row.timeOut))],
-    ];
+    return [item("Company name", site(report).jobName, "Service Summary", "#shared-job-name"), item("Service performed", data.servicePerformed, "Service Summary", "#service-performed"), item("Time log", (data.timeLogs || []).some((row) => present(row.date) && present(row.timeIn) && present(row.timeOut)), "Service Summary", "#service-time-log")];
   }
   if (templateId === "acceptance-certification") {
     const data = ensureAcceptanceCertificationData(findDoc(report, "Acceptance Certificate")?.data);
-    return [
-      ["Customer contact", data.customerContactName],
-      ["Load capacity", data.loadCapacity],
-      ["Startup date", data.startupDate],
-      ["Accepted by", data.acceptedByName],
-      ["Acceptance date", data.acceptanceDate],
-    ];
+    return [item("Customer contact", data.customerContactName, "Acceptance Certificate", "#acceptance-customer-contact"), item("Load capacity", data.loadCapacity, "Acceptance Certificate", "#acceptance-load-capacity"), item("Startup date", data.startupDate, "Acceptance Certificate", "#acceptance-startup-date"), item("Accepted by", data.acceptedByName, "Acceptance Certificate", "#acceptance-accepted-by"), item("Acceptance date", data.acceptanceDate, "Acceptance Certificate", "#acceptance-date")];
   }
   if (templateId === "motor-test") {
     const data = ensureMotorTestData(findDoc(report, "Motor Test Data")?.data);
-    return [
-      ["Motor manufacturer", data.motor.manufacturer],
-      ["Motor serial number", data.motor.serialNumber],
-      ["Motor HP", data.motor.hp],
-      ["Motor VAC", data.motor.vac],
-      ["Motor RPM", data.motor.rpm],
-      ["Motor FLA", data.motor.fla],
-      ["Rated load", data.ratedLoad],
-      ["Tested load", data.testedLoad],
-      ["Test date", data.testDate],
-    ];
+    return [item("Motor manufacturer", data.motor.manufacturer, "Motor Test Data", "[aria-label='Motor manufacturer']"), item("Motor serial number", data.motor.serialNumber, "Motor Test Data", "[aria-label='Motor serial number']"), item("Motor HP", data.motor.hp, "Motor Test Data", "[aria-label='Motor HP']"), item("Motor VAC", data.motor.vac, "Motor Test Data", "[aria-label='Motor voltage']"), item("Motor RPM", data.motor.rpm, "Motor Test Data", "[aria-label='Motor RPM']"), item("Motor FLA", data.motor.fla, "Motor Test Data", "[aria-label='Motor FLA']"), item("Rated load", data.ratedLoad, "Motor Test Data", "[aria-label='Rated load']"), item("Tested load", data.testedLoad, "Motor Test Data", "[aria-label='Tested load']"), item("Test date", data.testDate, "Motor Test Data", "[aria-label='Test date']")];
   }
-  if (templateId === "inspection-workbook") {
-    return [
-      ["Company name", site(report).jobName],
-      ["Location", site(report).siteCity || site(report).siteState],
-      ["Performed by", user?.name],
-    ];
-  }
+  if (templateId === "inspection-workbook") return [item("Company name", site(report).jobName, "Service Summary", "#shared-job-name"), item("Location", site(report).siteCity || site(report).siteState, "Service Summary", "#shared-city")];
   return [];
 };
-
-export const missingFieldsForTemplate = (templateId, report, user) =>
-  [...commonFields(report), ["Technician", user?.name], ...documentFields(templateId, report, user)]
-    .filter(([, value]) => !present(value))
-    .map(([label]) => label);
-
+const documentNameForTemplate = (id) => ({ "field-service-report": "Field Service Report", "internal-field-service-report": "Field Service Report", "service-summary": "Service Summary", "acceptance-certification": "Acceptance Certificate", "motor-test": "Motor Test Data", "inspection-workbook": "Inspection Sheet" })[id];
+export const missingItemsForTemplate = (id, report, user) => [...commonFields(report, user), ...documentFields(id, report)].filter(({ value }) => !present(value));
+export const missingFieldsForTemplate = (id, report, user) => missingItemsForTemplate(id, report, user).map(({ label }) => label);
 export const templateReadiness = (definition, record, report, user) => {
-  if (!record) return { status: "missing-template", ready: false, missing: [] };
-  const missing = missingFieldsForTemplate(definition.id, report, user);
-  return { status: missing.length ? "incomplete" : "ready", ready: missing.length === 0, missing };
+  if (!record) return { status: "missing-template", ready: false, missing: [], missingItems: [] };
+  const missingItems = missingItemsForTemplate(definition.id, report, user);
+  const source = findDoc(report, documentNameForTemplate(definition.id));
+  const status = missingItems.length ? "incomplete" : source?.done ? "completed" : "draft";
+  return { status, ready: missingItems.length === 0, missing: missingItems.map(({ label }) => label), missingItems };
 };

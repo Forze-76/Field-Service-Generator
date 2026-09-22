@@ -78,6 +78,7 @@ function AcceptanceCertificationForm({
         <div>
           <TinyLabel>Customer Contact Name</TinyLabel>
           <TinyInput
+            id="acceptance-customer-contact"
             value={data.customerContactName}
             onChange={(event) => updateData({ customerContactName: event.target.value })}
             placeholder="Contact name"
@@ -131,6 +132,7 @@ function AcceptanceCertificationForm({
         <div>
           <TinyLabel>Startup Date</TinyLabel>
           <TinyInput
+            id="acceptance-startup-date"
             value={data.startupDate}
             onChange={(event) => updateData({ startupDate: event.target.value })}
             type="date"
@@ -139,6 +141,7 @@ function AcceptanceCertificationForm({
         <div>
           <TinyLabel>Load Capacity</TinyLabel>
           <TinyInput
+            id="acceptance-load-capacity"
             value={data.loadCapacity}
             onChange={(event) => updateData({ loadCapacity: event.target.value })}
             placeholder="Rated capacity"
@@ -278,6 +281,7 @@ function AcceptanceCertificationForm({
         <div>
           <TinyLabel>Accepted By — Name</TinyLabel>
           <TinyInput
+            id="acceptance-accepted-by"
             value={data.acceptedByName}
             onChange={(event) => updateData({ acceptedByName: event.target.value })}
             placeholder="Name"
@@ -302,6 +306,7 @@ function AcceptanceCertificationForm({
         <div>
           <TinyLabel>Acceptance Date</TinyLabel>
           <TinyInput
+            id="acceptance-date"
             value={data.acceptanceDate}
             onChange={(event) => updateData({ acceptanceDate: event.target.value })}
             type="date"

@@ -21,11 +21,12 @@ function SharedSiteBlock({ shared, onChange }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
           <TinyLabel>Job Name</TinyLabel>
-          <TinyInput value={shared.jobName || ""} onChange={(e) => onChange({ jobName: e.target.value })} />
+          <TinyInput id="shared-job-name" value={shared.jobName || ""} onChange={(e) => onChange({ jobName: e.target.value })} />
         </div>
         <div>
           <TinyLabel>PFlow Serial Number</TinyLabel>
           <TinyInput
+            id="shared-serial-number"
             value={shared.serialNumberText || ""}
             onChange={(e) => onChange({ serialNumberText: e.target.value })}
             placeholder="e.g., M-12345"
@@ -34,7 +35,7 @@ function SharedSiteBlock({ shared, onChange }) {
         <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <TinyLabel>Site Street Address</TinyLabel>
-            <TinyInput value={shared.siteStreetAddress || ""} onChange={(e) => onChange({ siteStreetAddress: e.target.value })} />
+            <TinyInput id="shared-site-address" value={shared.siteStreetAddress || ""} onChange={(e) => onChange({ siteStreetAddress: e.target.value })} />
           </div>
           <div>
             <TinyLabel>Site Mailing Address</TinyLabel>
@@ -43,7 +44,7 @@ function SharedSiteBlock({ shared, onChange }) {
         </div>
         <div>
           <TinyLabel>City</TinyLabel>
-          <TinyInput value={shared.siteCity || ""} onChange={(e) => onChange({ siteCity: e.target.value })} />
+          <TinyInput id="shared-city" value={shared.siteCity || ""} onChange={(e) => onChange({ siteCity: e.target.value })} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -96,7 +97,7 @@ function ServiceSummaryForm({ report, doc, onUpdateReport, onUpdateDoc }) {
             + Add day
           </button>
         </div>
-        <div className="rounded-xl border overflow-hidden">
+        <div id="service-time-log" tabIndex={-1} className="rounded-xl border overflow-hidden">
           <div className="grid grid-cols-5 bg-gray-50 text-[12px] font-medium">
             <div className="px-2 py-1">Date</div>
             <div className="px-2 py-1">Time in</div>
@@ -164,7 +165,7 @@ function ServiceSummaryForm({ report, doc, onUpdateReport, onUpdateDoc }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <TinyLabel>Service performed</TinyLabel>
-          <TinyTextArea value={data.servicePerformed} onChange={(e) => setData({ servicePerformed: e.target.value })} />
+          <TinyTextArea id="service-performed" value={data.servicePerformed} onChange={(e) => setData({ servicePerformed: e.target.value })} />
         </div>
         <div className="flex items-end justify-end">
           <button type="button" className="px-2 py-1 rounded-lg border text-[13px]" onClick={() => {}}>
