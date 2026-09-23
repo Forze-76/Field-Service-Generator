@@ -3,3 +3,90 @@
 @tailwind utilities;
 
 html, body, #root { height: 100%; }
+
+/* Fieldwork: quiet surfaces, strong navigation, comfortable field controls. */
+:root { color: #172d37; background: #f2f5f5; font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; }
+.field-app { background:#f2f5f5; }
+.field-app button, .field-app input, .field-app select { min-height:44px; }
+button:disabled { cursor:not-allowed; opacity:.45; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible { outline:3px solid #0b8a87; outline-offset:3px; }
+.field-app input:not([type=checkbox]):not([type=radio]):not([type=file]), .field-app select, .field-app textarea { background:#fafcfc; border-color:#cad5d8; color:#172d37; }
+.field-app .bg-blue-600, .primary { background:#0b6667; color:white; border-color:#0b6667; }
+.field-app .text-blue-600 { color:#09666a; }
+.field-app .rounded-3xl { border-radius:18px; }
+.field-app .border { border-color:#d7e0e2; }
+.field-app .app-topbar { flex-wrap:wrap; gap:16px; padding-bottom:18px; border-bottom:1px solid #cdd9dc; }
+.app-topbar > div:last-child { flex-wrap:wrap; gap:8px; }
+.app-topbar h1 { letter-spacing:-.04em; color:#173e48; }
+.report-library { flex-shrink:0; min-height:100vh; }
+.report-library h2 { letter-spacing:-.025em; }
+.trip-banner { display:flex; align-items:center; justify-content:space-between; gap:24px; background:#163c46; color:#fff; padding:24px; border-radius:18px; }
+.trip-banner h2 { font-size:26px; font-weight:700; letter-spacing:-.025em; }
+.trip-banner p:not(.eyebrow) { color:#c3d9dc; font-size:14px; margin-top:6px; }
+.trip-banner button { padding:10px 14px; border:1px solid #597881; border-radius:10px; }
+.trip-banner .primary { background:#ddf1d7; color:#1a403f; border-color:#ddf1d7; font-weight:650; }
+.eyebrow { font-size:11px; letter-spacing:.13em; font-weight:700; text-transform:uppercase; margin-bottom:5px; }
+.section-heading, .stage-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.section-heading h2, .stage-heading h2 { font-size:26px; line-height:1.2; font-weight:700; letter-spacing:-.03em; }
+.section-heading p:not(.eyebrow), .stage-heading p:not(.eyebrow) { font-size:14px; color:#50646a; margin-top:8px; }
+.stage-heading button, .surface button { border:1px solid #c7d6d9; border-radius:10px; padding:10px 14px; font-size:14px; }
+.surface { background:#fff; border:1px solid #d7e0e2; border-radius:16px; padding:22px; }
+.surface h3 { font-size:17px; font-weight:650; }
+.status-pill { background:#e8f0ed; color:#27594f; font-size:12px; padding:8px 12px; border-radius:30px; white-space:nowrap; }
+.field-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; margin-top:18px; }
+.setup-panel label { font-size:13px; font-weight:600; color:#40565e; }
+.setup-panel input:not([type=checkbox]):not([type=file]), .setup-panel select { display:block; width:100%; border:1px solid #cad5d8; border-radius:9px; padding:10px 12px; margin-top:7px; font-weight:400; }
+.setup-panel .missing-link { color:#924812; background:#fff8eb; border-color:#eac99c; }
+.import-receipt { padding:14px 18px; background:#e8f4ed; border-radius:12px; font-size:14px; }
+.workflow-nav { position:sticky; top:0; z-index:20; background:#f2f5f5; padding:8px 0; }
+.workflow-nav [role=tablist] { border-radius:14px; }
+.workflow-nav [role=tab] { white-space:nowrap; flex:1 0 auto; text-align:left; padding:12px 16px; font-size:14px; cursor:pointer; }
+.workflow-nav [role=tab] > span:first-child { display:none; }
+.serial-disclosure summary { cursor:pointer; font-size:14px; font-weight:600; min-height:24px; }
+.serial-disclosure .report-header { margin-top:16px; box-shadow:none; }
+.serial-disclosure .report-header > div > div:last-child { display:none; }
+.serial-disclosure .report-header > div > .border-l { display:none; }
+.report-header > div { flex-wrap:wrap; }
+.report-header > div > div:first-child { gap:16px; }
+.report-header .w-60 { width:140px; }
+.report-header > div > div:last-child { min-width:260px; }
+.report-header .border-l { display:none; }
+[role=dialog] > div[tabindex] { max-height:90dvh; overflow-y:auto; }
+@media (max-width:767px) {
+ .field-app > .mx-auto.flex { flex-direction:column-reverse; }
+ .report-library { width:100%; min-height:0; border-top:1px solid #d7e0e2; }
+ .workspace-main { padding:16px; }
+ .app-topbar > div:last-child { width:100%; }
+ .app-topbar h1 { font-size:26px; }
+ .trip-banner { padding:20px; flex-direction:column; align-items:stretch; gap:16px; }
+ .trip-banner h2 { font-size:24px; }
+ .trip-banner button { flex:1; font-size:13px; }
+ .section-heading, .stage-heading { align-items:flex-start; flex-direction:column; }
+ .field-grid { grid-template-columns:1fr; }
+ .surface, .report-header { padding:16px; }
+ .report-header > div > div:last-child { min-width:0; width:100%; flex-wrap:wrap; }
+ .report-header .grid-cols-2 { grid-template-columns:1fr; width:100%; }
+ .report-header .col-span-2 { grid-column:span 1; }
+ .workspace-main .grid.place-items-center { padding-top:20px; padding-bottom:20px; }
+ .workspace-main .grid.place-items-center > div { padding:22px; }
+ input, select, textarea { font-size:16px !important; }
+}
+@media (prefers-reduced-motion:reduce) { *, *::before, *::after { scroll-behavior:auto !important; transition:none !important; } }
+.motor-table-scroll { overflow-x:auto; }
+.motor-table-scroll table { min-width:600px; }
+@media (max-width:767px) {
+ .report-open .app-topbar { display:grid; grid-template-columns:1fr; gap:6px; padding-bottom:8px; margin-bottom:12px; }
+ .report-open .app-topbar > div:first-child { position:absolute; }
+ .report-open .app-topbar > div:first-child h1 { font-size:20px; }
+ .report-open .app-topbar > div:last-child { justify-content:flex-end; gap:6px; }
+ .report-open .app-topbar > div:last-child > div:first-child { display:none; }
+ .report-open .app-topbar > div:last-child > .relative { margin-left:140px; }
+ .report-open .app-topbar .relative > button { max-width:185px; font-size:12px; }
+ .report-open .app-topbar .relative > button .text-xs { display:none; }
+ .report-open .trip-banner { padding:14px 16px; gap:10px; }
+ .report-open .trip-banner h2 { font-size:21px; }
+ .report-open .trip-banner .eyebrow { font-size:10px; }
+ .report-open .trip-banner button { font-size:12px; padding:8px; }
+ .report-open .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top:16px; }
+ .stage-heading h2 { font-size:23px; }
+}

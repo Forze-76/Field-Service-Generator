@@ -14,7 +14,7 @@ function DocumentTabs({ documents, activeId, onSelect, onReorder }) {
 
   useEffect(() => {
     setOrder(docs);
-  }, [docs.map((d) => d.id).join("|")]);
+  }, [documents]);
 
   useEffect(() => {
     if (!movedId) return;
@@ -25,6 +25,15 @@ function DocumentTabs({ documents, activeId, onSelect, onReorder }) {
     }
     setMovedId(null);
   }, [order, movedId]);
+
+  useEffect(() => {
+    const tab = itemRefs.current.get(activeId);
+    const strip = containerRef.current;
+    if (tab && strip) {
+      const left = tab.offsetLeft - strip.offsetLeft;
+      if (left < strip.scrollLeft || left + tab.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollTo?.({left: Math.max(0,left-8), behavior:'auto'});
+    }
+  }, [activeId, order]);
 
   const indexOfId = (id) => order.findIndex((d) => d.id === id);
 
@@ -86,7 +95,7 @@ function DocumentTabs({ documents, activeId, onSelect, onReorder }) {
     setDraggingId(id);
     setStartIndex(indexOfId(id));
     setOriginalOrder(order.slice());
-    setLiveMsg(`Dragging '${order[indexOfId(id)]?.name || ""}'. Use left/right to change position. Press Enter to drop.`);
+
   };
 
   const handlePointerMove = (event) => {
@@ -101,6 +110,7 @@ function DocumentTabs({ documents, activeId, onSelect, onReorder }) {
       const [item] = next.splice(from, 1);
       next.splice(over, 0, item);
       setOrder(next);
+      setLiveMsg(`Moving document to position ${over + 1}. Release to drop.`);
     }
   };
 
@@ -120,6 +130,7 @@ function DocumentTabs({ documents, activeId, onSelect, onReorder }) {
     } else {
       // Restore if no movement occurred but order mutated by live preview
       if (originalOrder) setOrder(originalOrder);
+      setLiveMsg("");
     }
     setOriginalOrder(null);
   };
@@ -172,7 +183,7 @@ function DocumentTabs({ documents, activeId, onSelect, onReorder }) {
           onPointerDown={(e) => handlePointerDown(e, doc.id)}
           onClick={(e) => handleClick(e, doc.id)}
           onKeyDown={(e) => handleKeyDown(e, doc.id)}
-          title={doc.done ? "Completed" : "Not completed"}
+          title={doc.status || (doc.done ? "Completed" : "Not completed")}
           role="tab"
           aria-selected={activeId === doc.id}
           aria-grabbed={draggingId === doc.id ? "true" : "false"}
@@ -183,7 +194,7 @@ function DocumentTabs({ documents, activeId, onSelect, onReorder }) {
             className="mr-2 inline-block w-2 h-2 rounded-full"
             style={{ backgroundColor: doc.done ? "#22c55e" : "#d1d5db" }}
           ></span>
-          {doc.name}
+          <span className="block">{doc.name}</span>{doc.status && <span className="block text-xs mt-1 opacity-90">{doc.status}</span>}
         </button>
         {/* slot placeholder after this tab */}
         {hoverIndex === i + 1 && (

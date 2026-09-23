@@ -54,3 +54,21 @@ Do not use Airplane Mode for this run: the iPad must remain connected to the PC.
 ## Stop the test server
 
 Return to PowerShell and press `Ctrl+C`.
+
+## Frontend redesign acceptance (development branch)
+
+Branch: `codex/field-workflow-redesign`. Do not merge or deploy until the finished result is approved.
+
+- [ ] Import a real Gmail invitation and a manual ICS; verify dates, site and contacts; confirm missing model/serial stay blank and all imported values remain editable.
+- [ ] Save an incomplete setup draft, close Safari, reopen it, and finish the actionable header checklist. Verify Start report remains unavailable until applicable headers are present.
+- [ ] Open an older report with incomplete headers and existing work; use Access saved work for correction and confirm no existing entries/photos are lost.
+- [ ] On phone, open Reports, select a saved trip, navigate backwards/jump ahead, and use Next. Check active-tab visibility and local sideways scrolling of motor measurements.
+- [ ] Add/remove/reorder applicable document pages. Confirm Inspection and Startup Checklist are clearly unavailable; they are not completed forms.
+- [ ] Confirm the serial-tag photo / None available gate, then add/edit/collapse/reorder entries and multiple photos. Verify internal notes remain internal in exported documents.
+- [ ] Review report details and numbered parts/labor rows, including installed parts, parts orders and correction labor.
+- [ ] Leave acceptance pending; export other completed documents. Correct missing fields from Review & export and confirm focus goes to the intended input.
+- [ ] Check draft/completed native filenames, completed-only batch export, photo export, Safari share/download behavior and real approved template formatting.
+- [ ] Verify camera/photo library picker, touch targets, onscreen keyboard, portrait/landscape, focus, VoiceOver and footer build stamp on physical iPad/iPhone.
+- [ ] Repeat backup/restore and HTTPS offline/reconnection tests above. Reports remain device-local; template synchronization is not report synchronization.
+
+Desktop Chromium evidence is recorded in `docs/UI_REDESIGN_PROGRESS.md`; it does not substitute for physical Safari acceptance.

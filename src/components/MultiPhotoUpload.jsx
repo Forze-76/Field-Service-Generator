@@ -64,6 +64,7 @@ function MultiPhotoUpload({ photos = [], onChange, disabled = false }) {
             ? "opacity-60 cursor-not-allowed"
             : "hover:border-blue-400 hover:bg-blue-50/50"
         }`}
+        role="button" tabIndex={disabled ? -1 : 0} aria-label="Add attachment photos" onKeyDown={e=>{if(!disabled && (e.key === "Enter" || e.key === " ")) {e.preventDefault();inputRef.current?.click();}}}
         onClick={() => {
           if (!disabled) inputRef.current?.click();
         }}
@@ -95,8 +96,9 @@ function MultiPhotoUpload({ photos = [], onChange, disabled = false }) {
       {photosList.length > 0 && (
         <div className="flex flex-wrap gap-3">
           {photosList.map((photo, idx) => (
-            <div key={photo.id} className="relative w-28 h-28 rounded-2xl overflow-hidden border bg-gray-50">
-              <img src={photo.imageUrl} alt={`Attachment ${idx + 1}`} className="w-full h-full object-cover" />
+            <div key={photo.id} className="relative w-36 h-40 rounded-2xl overflow-hidden border bg-gray-50">
+              <img src={photo.imageUrl} alt={`Attachment ${idx + 1}`} className="w-full h-24 object-cover" />
+              {!disabled && <div className="flex justify-between p-1"><button type="button" aria-label={`Move photo ${idx+1} earlier`} disabled={idx===0} onClick={()=>{const next=[...photos];[next[idx-1],next[idx]]=[next[idx],next[idx-1]];onChange(next);}}>←</button><span className="self-center text-xs">{idx+1}</span><button type="button" aria-label={`Move photo ${idx+1} later`} disabled={idx===photos.length-1} onClick={()=>{const next=[...photos];[next[idx+1],next[idx]]=[next[idx],next[idx+1]];onChange(next);}}>→</button></div>}
               {!disabled && (
                 <button
                   type="button"

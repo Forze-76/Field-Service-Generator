@@ -145,7 +145,7 @@ function EntryForm({ value, onChange }) {
       <div className="space-y-4">
         <div>
           <Label>Description</Label>
-          <textarea
+          <textarea aria-label={`${meta.label} description`}
             className="w-full rounded-2xl border px-3 py-2 text-sm min-h-[120px]"
             value={value.note}
             onChange={(event) => onChange({ ...value, note: event.target.value })}
@@ -168,7 +168,7 @@ function EntryForm({ value, onChange }) {
       <div className="space-y-4">
         <div>
           <Label>Description of items fixed onsite</Label>
-          <textarea
+          <textarea aria-label={`${meta.label} description`}
             className="w-full rounded-2xl border px-3 py-2 text-sm min-h-[120px]"
             value={value.note}
             onChange={(event) => onChange({ ...value, note: event.target.value })}
@@ -257,7 +257,7 @@ function EntryForm({ value, onChange }) {
         </button>
         <div>
           <Label>Notes (optional)</Label>
-          <textarea
+          <textarea aria-label={`${meta.label} description`}
             className="w-full rounded-2xl border px-3 py-2 text-sm min-h-[80px]"
             value={value.note || ""}
             onChange={(event) => onChange({ ...value, note: event.target.value })}
@@ -287,7 +287,7 @@ function EntryForm({ value, onChange }) {
         </div>
         <div>
           <Label>Notes (optional)</Label>
-          <textarea
+          <textarea aria-label={`${meta.label} description`}
             className="w-full rounded-2xl border px-3 py-2 text-sm min-h-[80px]"
             value={value.docNotes || ""}
             onChange={(event) => onChange({ ...value, docNotes: event.target.value })}
@@ -314,7 +314,7 @@ function EntryForm({ value, onChange }) {
         </div>
         <div>
           <Label>Details</Label>
-          <textarea
+          <textarea aria-label={`${meta.label} description`}
             className="w-full rounded-2xl border px-3 py-2 text-sm min-h-[80px]"
             value={value.followUp?.details || ""}
             onChange={(event) =>
@@ -331,7 +331,7 @@ function EntryForm({ value, onChange }) {
     return (
       <div>
         <Label>{meta.label}</Label>
-        <textarea
+        <textarea aria-label={`${meta.label} description`}
           className="w-full rounded-2xl border px-3 py-2 text-sm min-h-[120px]"
           value={value.note || ""}
           onChange={(event) => onChange({ ...value, note: event.target.value })}
@@ -360,7 +360,7 @@ function FsrEntryCard({ entry, index, total, onUpdate, onRemove, onMove, onToggl
                 meta.badgeClass
               }`}
             >
-              <span>{meta.emoji}</span>
+
               <span>{meta.label}</span>
             </span>
             <span className="text-xs text-gray-500">{timestamp}</span>
@@ -511,7 +511,7 @@ function FsrEntriesSection({
             className="px-4 py-2 rounded-xl bg-blue-600 text-white flex items-center gap-2 text-sm"
             onClick={(event) => openModal(event.currentTarget)}
           >
-            <Plus size={18} /> Add
+            <Plus size={18} /> Add entry
           </button>
         </div>
       </div>
@@ -524,7 +524,7 @@ function FsrEntriesSection({
 
       {entries.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-10 text-center text-sm text-gray-500">
-          No entries yet. Tap <b>Add</b> to capture issues, corrections, document requests, and more.
+          No entries yet. Tap <b>Add entry</b> to capture issues, corrections, document requests, and more.
         </div>
       ) : (
         <div className="space-y-3">
@@ -554,7 +554,7 @@ function FsrEntriesSection({
             }
           }}
         >
-          <div ref={modalContainerRef} tabIndex={-1} className="w-full max-w-3xl rounded-3xl bg-white p-6 shadow-xl">
+          <div ref={modalContainerRef} tabIndex={-1} className="w-full max-w-3xl max-h-[90dvh] overflow-y-auto rounded-3xl bg-white p-6 shadow-xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-semibold">
                 {draftType ? FSR_ENTRY_TYPE_META[draftType]?.label || "New Entry" : "Add entry"}
@@ -584,7 +584,7 @@ function FsrEntriesSection({
                           : "hover:border-blue-400 hover:bg-blue-50"
                       }`}
                     >
-                      <div className="text-2xl">{option.emoji}</div>
+
                       <div className="mt-2 font-semibold text-sm">{option.title}</div>
                       <div className="text-xs text-gray-500 mt-1">{option.description}</div>
                     </button>

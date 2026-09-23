@@ -9,7 +9,7 @@ function DocumentsManager({ documents, onChange }) {
 
   const add = useCallback(() => {
     const v = name.trim();
-    if (!v) return;
+    if (!v || items.some(doc=>doc.name.toLowerCase()===v.toLowerCase())) return;
     const nextDoc = { id: uid(), name: v, done: false, data: {} };
     onChange((prev = []) => [...prev, nextDoc]);
     setName("");
@@ -33,26 +33,27 @@ function DocumentsManager({ documents, onChange }) {
     <div>
       <div className="space-y-2">
         {items.length === 0 && <div className="text-sm text-gray-500">No documents yet.</div>}
-        {items.map((d) => (
+        {items.map((d, index) => (
           <div key={d.id} className="flex items-center justify-between rounded-xl border px-3 py-2">
-            <button className="flex items-center gap-2" onClick={() => toggle(d.id)}>
+            <button className="flex items-center gap-2" disabled={["Inspection Sheet","Startup Checklist"].includes(d.name)} title={["Inspection Sheet","Startup Checklist"].includes(d.name) ? "Form unavailable — completion cannot be verified" : "Toggle completion"} onClick={() => toggle(d.id)}>
               {d.done ? <CheckSquare size={18} /> : <Square size={18} />}
               <span>{d.name}</span>
             </button>
-            <button
+            <div className="flex gap-1"><button aria-label={`Move ${d.name} earlier`} disabled={index===0} onClick={()=>onChange(prev=>{const next=[...prev];[next[index-1],next[index]]=[next[index],next[index-1]];return next;})}>↑</button><button aria-label={`Move ${d.name} later`} disabled={index===items.length-1} onClick={()=>onChange(prev=>{const next=[...prev];[next[index+1],next[index]]=[next[index],next[index+1]];return next;})}>↓</button><button
               className="p-2 rounded-xl border"
               onClick={() => remove(d.id)}
               aria-label={`Remove ${d.name}`}
             >
               <Trash size={16} />
-            </button>
+            </button></div>
           </div>
         ))}
       </div>
+      <datalist id="document-options">{["Field Service Report","Service Summary","Motor Test Data","Acceptance Certificate","Inspection Sheet","Startup Checklist"].map(name=><option key={name} value={name}/>)}</datalist>
       <div className="mt-3 flex gap-2">
         <input
           className="flex-1 rounded-xl border px-3 py-2"
-          placeholder="Add document (e.g., Inspection Sheet)"
+          list="document-options" placeholder="Choose or name a document"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />

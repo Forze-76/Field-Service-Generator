@@ -8,7 +8,7 @@ import {
   templatesForTrip,
 } from "../utils/templateStore";
 import { requestGoogleDriveToken, syncGoogleTemplatesForTrip } from "../utils/googleDriveTemplates";
-import { templateReadiness } from "../utils/nativeTemplateReadiness";
+import { templateReadiness, missingItemsForTemplate } from "../utils/nativeTemplateReadiness";
 
 export default function TemplateManagerModal({ open, onClose, report, technician, returnFocusRef, onResolveMissing, onSetDocumentDone }) {
   const containerRef = useRef(null);
@@ -23,10 +23,12 @@ export default function TemplateManagerModal({ open, onClose, report, technician
       .map((item) => [item.templateId || item.id, item])),
     [report?.tripType, stored],
   );
-  const definitions = useMemo(() => templatesForTrip(report?.tripType), [report?.tripType]);
+  const definitions = useMemo(() => templatesForTrip(report?.tripType).filter(definition => !report || report.documents?.some(doc => ({'service-summary':'Service Summary','field-service-report':'Field Service Report','internal-field-service-report':'Field Service Report','motor-test':'Motor Test Data','acceptance-certification':'Acceptance Certificate','inspection-workbook':'Inspection Sheet'})[definition.id] === doc.name)), [report]);
   const exportRows = useMemo(() => definitions.map((definition) => {
     const record = installed.get(definition.id);
-    return { definition, record, readiness: templateReadiness(definition, record, report, technician) };
+    const readiness = templateReadiness(definition, record, report, technician);
+    if (!record && report) readiness.missingItems = missingItemsForTemplate(definition.id, report, technician);
+    return { definition, record, readiness };
   }), [definitions, installed, report, technician]);
   const refresh = async () => setStored(await listStoredTemplates());
 
@@ -99,7 +101,7 @@ export default function TemplateManagerModal({ open, onClose, report, technician
           <h3 id="template-manager-title" className="flex items-center gap-2 text-xl font-bold"><FileArchive size={20} /> Export Documents</h3>
           <button className="rounded-full p-2 hover:bg-gray-100" onClick={onClose} aria-label="Close export documents"><X size={18} /></button>
         </div>
-        <p className="mt-2 text-sm text-gray-600">Fix missing information here, mark finished documents complete, and export native PDF, DOCX, or XLSX files. Unfinished exports are labeled DRAFT.</p>
+        <p className="mt-3 font-semibold">{report?.jobNo} · {report?.sharedSite?.jobName || "Site not set"}</p><p className="mt-2 text-sm text-gray-600">Fix missing information here, mark finished documents complete, and export native PDF, DOCX, or XLSX files. Unfinished exports are labeled DRAFT.</p>
         <div className="mt-4 flex flex-wrap gap-2">
           <button className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-white disabled:opacity-50" onClick={handleExportReady} disabled={!!busyId || !report || !exportRows.some((row) => row.readiness.status === "completed")}>
             <Download size={17} /> {busyId === "batch" ? "Creating…" : "Export All Completed"}
@@ -124,7 +126,7 @@ export default function TemplateManagerModal({ open, onClose, report, technician
                       {definition.label}
                       {record && <span className={`rounded-full px-2 py-0.5 text-[11px] ${readiness.status === "completed" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{readiness.status === "completed" ? "Completed" : readiness.status === "draft" ? "Ready to mark complete" : "Draft"}</span>}
                     </div>
-                  <div className="text-xs text-gray-500">{record ? `${record.filename} · ${definition.format.toUpperCase()} · ${record.source === "google-drive" ? "Google Drive" : "Device cache"}` : "Not available for this report"}</div>
+                  <div className="text-xs text-gray-500">{record ? `${record.filename} · ${definition.format.toUpperCase()} · ${record.source === "google-drive" ? "Google Drive" : "Device cache"}` : "Template not yet saved on this device"}</div>
                   </div>
                   {record && report && (
                     <button className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm disabled:opacity-50" onClick={() => handleExport(row)} disabled={!!busyId}>
@@ -132,9 +134,9 @@ export default function TemplateManagerModal({ open, onClose, report, technician
                     </button>
                   )}
                 </div>
-                {readiness.status === "missing-template" && <p className="mt-2 text-xs text-amber-700">Synchronize templates before exporting this document.</p>}
+                {readiness.status === "missing-template" && <p className="mt-2 text-xs text-amber-700">Use Sync above to load the approved templates from Google Drive. This is needed once on each device; the saved templates then work offline.</p>}
                 {readiness.missingItems.length > 0 && <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-amber-700"><span>Missing:</span>{readiness.missingItems.map((missing) => <button key={missing.label} type="button" className="rounded border border-amber-300 bg-amber-50 px-2 py-1 font-medium underline" onClick={() => onResolveMissing?.(missing)}>{missing.label}</button>)}</div>}
-                {readiness.status === "draft" && <button type="button" className="mt-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800" onClick={() => onSetDocumentDone?.(definition.id, true)}>Mark document complete</button>}
+                {definition.id !== "inspection-workbook" && readiness.status === "draft" && <button type="button" className="mt-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800" onClick={() => onSetDocumentDone?.(definition.id, true)}>Mark document complete</button>}
                 {readiness.status === "completed" && <button type="button" className="mt-2 text-xs text-gray-600 underline" onClick={() => onSetDocumentDone?.(definition.id, false)}>Return to draft</button>}
               </div>
             );

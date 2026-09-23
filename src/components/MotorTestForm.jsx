@@ -74,7 +74,7 @@ function MotorTestForm({
   const renderVoltageTable = (segmentKey, title) => (
     <div key={segmentKey} className="space-y-2">
       <div className="text-[13px] font-semibold">{title}</div>
-      <table className="w-full text-[12px]" style={{ borderCollapse: "collapse" }}>
+      <div className="motor-table-scroll" role="region" aria-label="Motor measurements — scroll horizontally on narrow screens" tabIndex={0}><p className="text-xs text-slate-600 mb-2 md:hidden">Swipe sideways to see all measurements →</p><table className="w-full text-[12px]" style={{ borderCollapse: "collapse" }}>
         <tbody>
           <tr>
             {VOLT_LINE_KEYS.map(({ key, label }) => (
@@ -107,7 +107,7 @@ function MotorTestForm({
             ))}
           </tr>
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 
@@ -147,7 +147,7 @@ function MotorTestForm({
 
       <div>
         <TinyLabel>Measured Current (AFD Output)</TinyLabel>
-        <table className="w-full text-[12px]" style={{ borderCollapse: "collapse" }}>
+        <div className="motor-table-scroll" role="region" aria-label="Motor measurements — scroll horizontally on narrow screens" tabIndex={0}><p className="text-xs text-slate-600 mb-2 md:hidden">Swipe sideways to see all measurements →</p><table className="w-full text-[12px]" style={{ borderCollapse: "collapse" }}>
           <thead>
             <tr className="bg-gray-50 text-gray-600 font-medium">
               <th className="border border-gray-200 px-2 py-2 text-left"></th>
@@ -168,7 +168,7 @@ function MotorTestForm({
             </tr>
           </thead>
           <tbody>{["up", "down"].map((direction) => renderCurrentRow(direction === "up" ? "Up" : "Down", direction))}</tbody>
-        </table>
+        </table></div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

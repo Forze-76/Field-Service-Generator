@@ -1,3 +1,6 @@
+import WorkSummary from './components/WorkSummary';
+import TripSetupPanel from './components/TripSetupPanel';
+import { setupMissing, documentStatus, orderNewDocuments } from './utils/fieldWorkflow';
 import GmailInvitePicker from "./components/GmailInvitePicker";
 // FSR iPad – Web Demo Prototype (React) v0.8 (widgets removed)
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
@@ -75,6 +78,8 @@ function Workspace({
 
   // Setup form state
   const [setupOpen, setSetupOpen] = useState(false);
+  const [setupReportId, setSetupReportId] = useState(null);
+  const [correctionReportId, setCorrectionReportId] = useState(null);
 
   const [search, setSearch] = useState("");
 
@@ -273,7 +278,7 @@ function Workspace({
       const inviteMeta = draft.inviteMeta || null;
       const projectContact = inviteMeta?.projectContact || {};
       const installContact = inviteMeta?.installContact || {};
-      const documents = makeDocs(tripType).map((doc) => {
+      const documents = orderNewDocuments(makeDocs(tripType), tripType).map((doc) => {
         const name = (doc.name || "").toLowerCase();
         if (name === "service summary") {
           return {
@@ -305,8 +310,8 @@ function Workspace({
         jobNo: jobNo.trim(),
         tripType,
         model,
-        startAt: new Date(startAt).toISOString(),
-        endAt: new Date(endAt).toISOString(),
+        startAt: startAt ? new Date(startAt).toISOString() : "",
+        endAt: endAt ? new Date(endAt).toISOString() : "",
         createdAt: new Date().toISOString(),
         serialTagImageUrl: "",
         serialTagMissing: false,
@@ -327,6 +332,7 @@ function Workspace({
       };
       setReports((prev) => [report, ...prev]);
       setSelectedId(report.id);
+      setSetupReportId(report.id);
       setSetupOpen(false);
       setDuplicatePrompt(null);
     },
@@ -455,7 +461,11 @@ function Workspace({
     updateDocById(fsrDocId, (doc) => ({ ...doc, data: ensureFsrDocData(fsrDocData) }));
   }, [fsrDocId, fsrDocData, updateDocById]);
 
-  const activeDoc = selected?.documents?.find(d=>d.id===activeDocId) || null;
+  const headerMissing = selected ? setupMissing(selected, currentUser) : [];
+  const showingSetup = selected && (setupReportId === selected.id || (headerMissing.length > 0 && correctionReportId !== selected.id));
+  const activeDoc = !showingSetup ? selected?.documents?.find(d=>d.id===activeDocId) || null : null;
+  const hasSavedWork = selected?.photos?.length || selected?.documents?.some(doc => doc.done || doc.data?.entries?.length || doc.data?.issues?.length || doc.data?.details?.workSummary || doc.data?.details?.partsInstalled?.length || doc.data?.details?.partsNeeded?.length || doc.data?.servicePerformed || doc.data?.timeLogs?.some(row=>row.timeIn || row.timeOut || row.signature) || Object.values(doc.data?.motor || {}).some(Boolean) || doc.data?.testedLoad || doc.data?.acceptedByName);
+  const nextStage = selected?.documents?.slice(selected.documents.findIndex(doc=>doc.id===activeDocId)+1).find(doc=>!["Form unavailable"].includes(documentStatus(doc,selected,currentUser)));
   const hasPhotos = (selected?.photos||[]).length>0;
   const isFsrTabActive = (activeDoc?.name || "").toLowerCase() === "field service report";
   const isMotorTestDocActive = isMotorTestDocName(activeDoc?.name);
@@ -542,6 +552,8 @@ function Workspace({
       const sourceDocument = selected?.documents?.find((doc) => (doc.name || "").toLowerCase() === target.documentName.toLowerCase());
       if (sourceDocument) setActiveDocId(sourceDocument.id);
     }
+    if (['#report-job-number','#report-model','#report-start-date','#report-technician'].includes(target.selector) || target.selector.startsWith('#shared-')) setSetupReportId(selected.id);
+    else { setSetupReportId(null); setCorrectionReportId(selected.id); }
     pendingExportFocusRef.current = target.selector;
     setTemplatesOpen(false);
   }, [selected?.documents]);
@@ -557,7 +569,7 @@ function Workspace({
       field.focus?.({ preventScroll: true });
     }, 100);
     return () => window.clearTimeout(timer);
-  }, [activeDocId, templatesOpen]);
+  }, [activeDocId, templatesOpen, showingSetup]);
 
   const handleSetExportDocumentDone = useCallback((templateId, done) => {
     const documentName = {
@@ -578,8 +590,7 @@ function Workspace({
   }, []);
 
   return (
-    <div className="min-h-dvh bg-gradient-to-b from-gray-50 to-white">
-      <BuildStamp />
+    <div className={`field-app min-h-dvh ${selected ? "report-open" : ""}`}>
       {toast && (
         <div className="fixed top-6 right-6 z-50">
           <div className="rounded-xl bg-slate-900/90 px-4 py-3 text-sm font-medium text-white shadow-xl">
@@ -591,7 +602,7 @@ function Workspace({
       <div className={`mx-auto ${selected? 'max-w-6xl' : 'max-w-7xl'} flex`}>
         {/* Sidebar only on Home */}
         {!selected && (
-          <aside className="w-[320px] border-r bg-white/70 backdrop-blur sticky top-0 h-dvh p-4 hidden md:block">
+          <aside className="report-library w-[300px] border-r bg-white p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-extrabold">Reports</h2>
               <button
@@ -645,8 +656,8 @@ function Workspace({
         )}
 
         {/* Main */}
-        <main className="flex-1 p-6">
-          <div className="flex items-center justify-between mb-6">
+        <main className="workspace-main flex-1 min-w-0 p-6">
+          <div className="app-topbar flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               {selected && (
                 <button
@@ -658,7 +669,7 @@ function Workspace({
                   <HomeIcon size={18}/>
                 </button>
               )}
-              <h1 className="text-2xl md:text-3xl font-extrabold">Field Service Report</h1>
+              <h1 className="text-2xl md:text-3xl font-extrabold">Fieldwork</h1>
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
@@ -714,8 +725,8 @@ function Workspace({
           {!selected && (
             <div className="grid place-items-center py-16">
               <div className="w-full max-w-2xl rounded-3xl border shadow-sm p-8 bg-white text-center">
-                <p className="text-gray-500">Start a report or pick one on the left</p>
-                <h2 className="text-2xl font-bold mt-1">Create a new Report</h2>
+                <p className="text-gray-500">Your next site visit starts here.</p>
+                <h2 className="text-2xl font-bold mt-1">Arrive prepared. Capture as you go.</h2>
                 <button
                   className="mt-6 w-full px-6 py-4 rounded-2xl bg-blue-600 text-white font-semibold text-lg flex items-center justify-center gap-2"
                   onClick={(event)=>{
@@ -732,17 +743,14 @@ function Workspace({
           {/* Editor when a report is selected */}
           {selected && (
             <div className="w-full mx-auto space-y-6">
-              {/* Unified report-level header for all documents */}
-              <ReportHeaderBar
-                report={selected}
-                onUpdateReport={updateReport}
-                onOpenManuals={(event)=>{ manualsTriggerRef.current = event?.currentTarget || event; setManualsOpen(true); }}
-                manualsButtonRef={manualsTriggerRef}
-              />
-
-              {/* Removed amber reminder below header to reduce noise */}
-
-              
+              <div className="trip-banner"><div><p className="eyebrow">{selected.tripType || 'Trip draft'} · {selected.jobNo || 'Job not set'}</p><h2>{selected.sharedSite?.jobName || 'Set up your site visit'}</h2><p>{selected.model ? `Model ${selected.model}` : 'Model not set'} · {headerMissing.length ? 'Setup incomplete' : 'Shared headers ready'}</p></div><div className="flex gap-2 flex-wrap"><button onClick={()=>setSetupReportId(selected.id)}>Trip setup</button><button ref={docsTriggerRef} onClick={()=>setDocsOpen(true)}>Manage documents</button><button className="primary" ref={templatesTriggerRef} onClick={()=>setTemplatesOpen(true)}>Review & export</button></div></div>
+              {showingSetup ? <TripSetupPanel report={selected} user={currentUser} types={types} onUpdate={updateReport} onStart={()=>{setSetupReportId(null);setCorrectionReportId(selected.id);}} onManage={()=>setDocsOpen(true)} onCorrectExisting={hasSavedWork ? ()=>{setSetupReportId(null);setCorrectionReportId(selected.id);} : undefined}>
+                <ReportHeaderBar showSerial={false} report={selected} onUpdateReport={updateReport} onOpenManuals={(event)=>{manualsTriggerRef.current=event.currentTarget;setManualsOpen(true);}} manualsButtonRef={manualsTriggerRef}/>
+              </TripSetupPanel> : <>
+                <div className="workflow-nav"><DocumentTabs documents={(selected.documents || []).map(doc=>({...doc, status:documentStatus(doc,selected,currentUser)}))} activeId={activeDocId} onSelect={setActiveDocId} onReorder={next=>updateDocs(next.map(({status,...doc})=>doc))}/></div>
+                <div className="stage-heading"><div><p className="eyebrow">Stage {Math.max(1,(selected.documents || []).findIndex(doc=>doc.id===activeDocId)+1)} of {selected.documents.length}</p><h2>{activeDoc?.name || 'Choose a document'}</h2><p>{activeDoc ? documentStatus(activeDoc,selected,currentUser) : 'Add a page with Manage documents.'}{isAcceptanceDocActive ? ' · You can leave acceptance pending and export other completed documents.' : ''}</p></div><button onClick={()=>{if(nextStage)setActiveDocId(nextStage.id);else setTemplatesOpen(true);}}>{nextStage ? `Next: ${nextStage.name} →` : 'Review & export →'}</button></div>
+                {isFsrTabActive && <details className="surface serial-disclosure" open={!readyForIssues}><summary>Serial tag · {readyForIssues ? 'Recorded — edit photo or availability' : 'Required before adding issues'}</summary><ReportHeaderBar report={selected} onUpdateReport={updateReport} onOpenManuals={()=>setManualsOpen(true)} manualsButtonRef={manualsTriggerRef}/></details>}
+              </>}
 
               {/* Active Document Body */}
               {activeDoc && (activeDoc.name||"").toLowerCase()==='field service report' && (
@@ -762,7 +770,9 @@ function Workspace({
                     onCollapseAll={handleCollapseAll}
                     readyForIssue={readyForIssues}
                   />
+                  <WorkSummary report={selected} data={fsrData} onChange={updateFsrData} />
                   <div>
+                    <button className="mb-3 px-3 py-2 border rounded-xl" disabled={!hasPhotos} onClick={()=>exportFieldPictures(selected)}>Export field photos</button>
                     <PhotoVault photos={selected.photos||[]} onChange={updatePhotos} />
                   </div>
                 </DocEditorShell>
@@ -829,7 +839,7 @@ function Workspace({
                   className="rounded-3xl border shadow-sm p-6 bg-white"
                 >
                   <h3 className="text-lg font-bold">{activeDoc.name}</h3>
-                  <p className="text-gray-500 mt-2">This will be a form with questions soon. Use the Docs button near Trip Type to add/remove documents and mark completed.</p>
+                  <p className="text-gray-500 mt-2">This form is not implemented yet. Existing data is retained, but inspection answers and startup checks cannot be recorded here. Continue to another stage or use Manage documents. Header-only workbook export does not complete an inspection.</p>
                 </DocEditorShell>
               )}
 
@@ -840,6 +850,8 @@ function Workspace({
           )}
         </main>
       </div>
+
+      <BuildStamp />
 
       {/* Trip Types Manager */}
       <ManageTypes
@@ -980,17 +992,16 @@ export default function App() {
 
 export { ReportSetup };
 
-const REPORT_DURATION_MS = 2 * 60 * 60 * 1000;
+
 
 function makeInitialReportDraft() {
-  const start = new Date();
-  const end = new Date(start.getTime() + REPORT_DURATION_MS);
+
   return {
     jobNo: "J#",
     tripType: "",
     model: "",
-    startAt: toISOInput(start),
-    endAt: toISOInput(end),
+    startAt: "",
+    endAt: "",
   };
 }
 
@@ -1023,9 +1034,9 @@ function ReportSetup({ open, onClose, types, onCreate, returnFocusRef, reports =
 
   const jobValid = isValidJob(draft.jobNo);
   const importedReport = findImportedInvite(reports, draft);
-  const validDates = Number.isFinite(new Date(draft.startAt).getTime()) && Number.isFinite(new Date(draft.endAt).getTime());
+
   const endBeforeStart = new Date(draft.endAt) < new Date(draft.startAt);
-  const canCreate = jobValid && !!draft.tripType && !!draft.model && validDates && !endBeforeStart && !importedReport;
+  const canCreate = !!draft.tripType && (!draft.startAt || Number.isFinite(Date.parse(draft.startAt))) && (!draft.endAt || Number.isFinite(Date.parse(draft.endAt))) && !endBeforeStart && !importedReport;
 
   const handleSubmit = () => {
     if (!canCreate) return;
@@ -1087,7 +1098,7 @@ function ReportSetup({ open, onClose, types, onCreate, returnFocusRef, reports =
           >
             Import Calendar Invite
           </button>
-          <span className="ml-3 text-xs text-blue-900">Automatically fills the job, trip type, dates, site, and contacts.</span>
+          <span className="ml-3 text-xs text-blue-900">Import a trip, or enter the details below manually.</span>
           <GmailInvitePicker onImport={applyInvite} />
           {importedReport && <div role="alert" className="mt-2 text-sm text-amber-900">This invitation already has a report. <button type="button" className="underline font-semibold" onClick={() => onOpenExisting?.(importedReport.id)}>Open existing report</button></div>}
           {draft.inviteMeta?.summary && <div className="mt-2 text-xs font-medium text-emerald-700">Loaded: {draft.inviteMeta.summary}</div>}
@@ -1198,13 +1209,13 @@ function ReportSetup({ open, onClose, types, onCreate, returnFocusRef, reports =
             {endBeforeStart && <div className="text-xs text-red-500 mt-1">End must be after Start.</div>}
           </div>
         </div>
-        {draft.inviteMeta && <div className="mt-4 space-y-3">
+        {<div className="mt-4 space-y-3">
           <p className="text-xs text-gray-600">Review the imported details. Timed events use this device’s time zone; all-day End shows the last included day. Choose the model if it was not supplied.</p>
           <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-3"><legend className="font-semibold">Site details</legend>
             {[["jobName", "Site name"], ["siteStreetAddress", "Street address"], ["siteMailingAddress", "Mailing address"], ["siteCity", "City"], ["siteState", "State"], ["siteZip", "ZIP code"], ["serialNumberText", "Serial number"], ["customerContact", "Site contact"]].map(([key, label]) => <label key={key} className="text-sm">{label}<input className="block w-full rounded-lg border p-2" value={draft.sharedSite?.[key] || ""} onChange={(event) => setDraft((prev) => ({ ...prev, sharedSite: { ...prev.sharedSite, [key]: event.target.value } }))} /></label>)}
           </fieldset>
           {[["projectContact", "Project contact"], ["installContact", "Install contact"]].map(([contact, label]) => <fieldset key={contact} className="grid grid-cols-1 md:grid-cols-2 gap-3"><legend className="font-semibold">{label}</legend>
-            {[["name", "Name"], ["company", "Company"], ["phone", "Phone"], ["alternatePhone", "Alternate phone"], ["email", "Email"]].map(([key, title]) => <label key={key} className="text-sm">{label} {title.toLowerCase()}<input className="block w-full rounded-lg border p-2" value={draft.inviteMeta?.[contact]?.[key] || ""} onChange={(event) => setDraft((prev) => ({ ...prev, inviteMeta: { ...prev.inviteMeta, [contact]: { ...prev.inviteMeta[contact], [key]: event.target.value } } }))} /></label>)}
+            {[["name", "Name"], ["company", "Company"], ["phone", "Phone"], ["alternatePhone", "Alternate phone"], ["email", "Email"]].map(([key, title]) => <label key={key} className="text-sm">{label} {title.toLowerCase()}<input className="block w-full rounded-lg border p-2" value={draft.inviteMeta?.[contact]?.[key] || ""} onChange={(event) => setDraft((prev) => ({ ...prev, inviteMeta: { ...prev.inviteMeta, [contact]: { ...prev.inviteMeta?.[contact], [key]: event.target.value } } }))} /></label>)}
           </fieldset>)}
         </div>}
         <div className="mt-6 flex justify-end gap-2">
@@ -1216,7 +1227,7 @@ function ReportSetup({ open, onClose, types, onCreate, returnFocusRef, reports =
             disabled={!canCreate}
             onClick={handleSubmit}
           >
-            Create Report
+            Save draft & review setup
           </button>
         </div>
       </div>

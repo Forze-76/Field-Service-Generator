@@ -11,7 +11,7 @@ export default function BuildStamp() {
 
   return (
     <div
-      className="fixed bottom-2 right-2 z-40 max-w-[calc(100vw-1rem)] rounded-lg border border-slate-300 bg-white/90 px-2 py-1 text-[10px] font-medium text-slate-600 shadow-sm backdrop-blur"
+      className="mx-auto max-w-6xl px-6 py-4 text-xs text-slate-600 break-words"
       title={title}
       aria-label={`App build branch ${branch}, commit ${commit}`}
     >

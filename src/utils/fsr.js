@@ -389,6 +389,7 @@ export const docRequestLabel = (key) => DOC_REQUEST_LABELS[key] || DOC_REQUEST_L
 
 export const toISOInput = (date) => {
   const dt = new Date(date);
+  if (!date || !Number.isFinite(dt.getTime())) return "";
   const iso = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000)
     .toISOString()
     .slice(0, 16); // yyyy-MM-ddTHH:mm
@@ -897,6 +898,7 @@ export const clampJob = (raw) => {
 };
 
 export function formatRange(startAt, endAt) {
+  if (!startAt || !endAt) return "Dates not set";
   try {
     const s = new Date(startAt);
     const e = new Date(endAt);
@@ -1709,8 +1711,9 @@ export function exportFieldPictures(report) {
     : `<p style="color:#4b5563;">No field pictures attached.</p>`;
   const body = `<h1>${esc(title)}</h1>${grid}`;
   const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${esc(title)}</title><style>${styles}</style></head><body>${body}</body></html>`;
-  const win = window.open("", "_blank", "noopener,noreferrer");
+  const win = window.open("", "_blank");
   if (!win) return;
+  win.opener = null;
   win.document.write(html);
   win.document.close();
   win.focus();

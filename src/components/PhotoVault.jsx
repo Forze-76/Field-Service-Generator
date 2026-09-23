@@ -80,9 +80,10 @@ function PhotoVault({ photos = [], onChange }) {
               ) : (
                 <div className="h-64 bg-gray-50" />
               )}
+              <div className="px-3 pt-2 flex justify-between"><button aria-label={`Move field photo ${idx + 1} earlier`} disabled={idx===0} onClick={()=>onChange(prev=>{const next=[...prev];[next[idx-1],next[idx]]=[next[idx],next[idx-1]];return next;})}>← Earlier</button><button aria-label={`Move field photo ${idx + 1} later`} disabled={idx===photosList.length-1} onClick={()=>onChange(prev=>{const next=[...prev];[next[idx+1],next[idx]]=[next[idx],next[idx+1]];return next;})}>Later →</button></div>
               <div className="p-3 flex items-center gap-2">
                 <input
-                  className="flex-1 rounded-xl border px-3 py-2"
+                  className="flex-1 min-w-0 rounded-xl border px-3 py-2"
                   placeholder="Caption (optional)"
                   value={p.caption || ""}
                   onChange={(event) => handleCaptionChange(p.id, event.target.value)}

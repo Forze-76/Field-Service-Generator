@@ -104,7 +104,7 @@ describe("modal input focus", () => {
 
     render(<Harness expose={(api) => Object.assign(controls, api)} />);
 
-    await user.click(screen.getByRole("button", { name: /^add$/i }));
+    await user.click(screen.getByRole("button", { name: /^add entry$/i }));
 
     const dialogs = await screen.findAllByRole("dialog");
     const dialog = dialogs[dialogs.length - 1];
