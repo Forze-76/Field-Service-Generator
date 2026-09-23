@@ -66,3 +66,5 @@ Remaining point 2 acceptance: enable/verify the Gmail API, OAuth audience/read-o
 - Automated preflight: lint, 99 tests across 24 files and production build passed. Desktop Chromium smoke verified missing-serial navigation and focus, field completion, draft/complete transitions, completed batch eligibility and an actual native DOCX download named `DRAFT 2026.09.22 Field Service Report - J#12345.docx`, with no page runtime errors.
 
 Remaining point 3 acceptance: repeat the navigation and draft/completed download checks in Safari on the field iPad as part of point 5. Existing bundle-size and stale browser-data notices remain maintenance work.
+
+The exact point 3 Safari checks are included in the **Final acceptance checklist** in `docs/IPAD_TEST_RUN.md`, together with the Gmail, native export, persistence, offline and phone checks to perform after development is complete.
