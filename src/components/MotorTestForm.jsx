@@ -7,7 +7,7 @@ function TinyLabel({ children }) {
 
 function TinyInput(props) {
   const { className = "", ...rest } = props;
-  return <input {...rest} className={`w-full rounded-lg border px-2 py-1 text-[13px] ${className}`} />;
+  return <input {...rest} className={`min-w-0 w-full rounded-lg border px-2 py-1 text-[13px] ${className}`} />;
 }
 
 //
@@ -72,125 +72,54 @@ function MotorTestForm({
   );
 
   const renderVoltageTable = (segmentKey, title) => (
-    <div key={segmentKey} className="space-y-2">
-      <div className="text-[13px] font-semibold">{title}</div>
-      <div className="motor-table-scroll" role="region" aria-label="Motor measurements — scroll horizontally on narrow screens" tabIndex={0}><p className="text-xs text-slate-600 mb-2 md:hidden">Swipe sideways to see all measurements →</p><table className="w-full text-[12px]" style={{ borderCollapse: "collapse" }}>
-        <tbody>
-          <tr>
-            {VOLT_LINE_KEYS.map(({ key, label }) => (
-              <td key={key} className="border border-gray-200 px-2 py-2 align-top">
-                <div className="text-[11px] text-gray-600">{label}</div>
-                <TinyInput
-                  value={data[segmentKey][key]}
-                  onChange={(event) => setVoltage(segmentKey, key, event.target.value)}
-                  placeholder="VAC"
-                  className="mt-1 text-center"
-                  inputMode="decimal"
-                  aria-label={`${title} ${label}`}
-                />
-              </td>
-            ))}
-          </tr>
-          <tr>
-            {VOLT_GROUND_KEYS.map(({ key, label }) => (
-              <td key={key} className="border border-gray-200 px-2 py-2 align-top">
-                <div className="text-[11px] text-gray-600">{label}</div>
-                <TinyInput
-                  value={data[segmentKey][key]}
-                  onChange={(event) => setVoltage(segmentKey, key, event.target.value)}
-                  placeholder="VAC"
-                  className="mt-1 text-center"
-                  inputMode="decimal"
-                  aria-label={`${title} ${label}`}
-                />
-              </td>
-            ))}
-          </tr>
-        </tbody>
-      </table></div>
-    </div>
+    <fieldset key={segmentKey} className="min-w-0 rounded-xl border p-3">
+      <legend className="px-1 text-sm font-semibold">{title}</legend>
+      <div className="grid grid-cols-3 gap-2">
+        {[...VOLT_LINE_KEYS, ...VOLT_GROUND_KEYS].map(({ key, label }) => (
+          <label key={key} className="min-w-0 text-xs text-gray-600">
+            {label}
+            <TinyInput value={data[segmentKey][key]}
+              onChange={event => setVoltage(segmentKey, key, event.target.value)}
+              placeholder="VAC" className="mt-1 text-center" inputMode="decimal"
+              aria-label={`${title} ${label}`} />
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 
-  const renderCurrentRow = (directionLabel, directionKey) => (
-    <tr key={directionKey}>
-      <th className="border border-gray-200 bg-gray-50 px-2 py-2 text-left text-[12px] font-medium text-gray-700">
-        {directionLabel}
-      </th>
-      {["unloaded", "full"].flatMap((loadKind) =>
-        CURRENT_KEYS.map((phaseKey) => (
-          <td key={`${directionKey}-${loadKind}-${phaseKey}`} className="border border-gray-200 px-2 py-2">
-            <TinyInput
-              value={data.currents[directionKey][loadKind][phaseKey]}
-              onChange={(event) => setCurrent(directionKey, loadKind, phaseKey, event.target.value)}
-              placeholder="A"
-              className="text-center"
-              inputMode="decimal"
-              aria-label={`${directionLabel} ${loadKind === "unloaded" ? "Unloaded" : "Full Load"} ${phaseKey.toUpperCase()}`}
-            />
-          </td>
-        )),
-      )}
-    </tr>
+  const renderCurrentTable = (loadKind, title) => (
+    <fieldset key={loadKind} className="min-w-0 rounded-xl border p-3">
+      <legend className="px-1 text-sm font-semibold">{title} (Amps)</legend>
+      <table className="w-full table-fixed text-xs">
+        <thead>
+          <tr>
+            <th className="w-12"><span className="sr-only">Direction</span></th>
+            {CURRENT_KEYS.map(key => <th key={key} scope="col" className="pb-2 font-medium text-gray-600">{key.toUpperCase()}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {["up", "down"].map(direction => (
+            <tr key={direction}>
+              <th scope="row" className="text-left font-medium">{direction === "up" ? "Up" : "Down"}</th>
+              {CURRENT_KEYS.map(key => (
+                <td key={key} className="p-1">
+                  <TinyInput value={data.currents[direction][loadKind][key]}
+                    onChange={event => setCurrent(direction, loadKind, key, event.target.value)}
+                    placeholder="A" className="text-center" inputMode="decimal"
+                    aria-label={`${direction === "up" ? "Up" : "Down"} ${title} ${key.toUpperCase()}`} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </fieldset>
   );
 
   return (
     <div className="space-y-6">
       {/* Meta fields (Job/Serial/Model/Address) removed from this editor */}
-
-      <div>
-        <TinyLabel>Measured Voltage</TinyLabel>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {renderVoltageTable("voltIncoming", "Incoming")}
-          {renderVoltageTable("voltAfd", "AFD Output")}
-        </div>
-      </div>
-
-      <div>
-        <TinyLabel>Measured Current (AFD Output)</TinyLabel>
-        <div className="motor-table-scroll" role="region" aria-label="Motor measurements — scroll horizontally on narrow screens" tabIndex={0}><p className="text-xs text-slate-600 mb-2 md:hidden">Swipe sideways to see all measurements →</p><table className="w-full text-[12px]" style={{ borderCollapse: "collapse" }}>
-          <thead>
-            <tr className="bg-gray-50 text-gray-600 font-medium">
-              <th className="border border-gray-200 px-2 py-2 text-left"></th>
-              <th className="border border-gray-200 px-2 py-2 text-center" colSpan={3}>
-                Unloaded (Amps)
-              </th>
-              <th className="border border-gray-200 px-2 py-2 text-center" colSpan={3}>
-                Full Load (Amps)
-              </th>
-            </tr>
-            <tr className="bg-gray-50 text-gray-500">
-              <th className="border border-gray-200 px-2 py-2 text-left text-[12px] font-medium"></th>
-              {["T1", "T2", "T3", "T1", "T2", "T3"].map((label, index) => (
-                <th key={`head-${label}-${index}`} className="border border-gray-200 px-2 py-2 text-center text-[12px] font-medium">
-                  {label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>{["up", "down"].map((direction) => renderCurrentRow(direction === "up" ? "Up" : "Down", direction))}</tbody>
-        </table></div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <TinyLabel>Rated Load</TinyLabel>
-          <TinyInput
-            value={data.ratedLoad}
-            onChange={(event) => updateData({ ratedLoad: event.target.value })}
-            placeholder="e.g., 4000 lbs"
-            aria-label="Rated load"
-          />
-        </div>
-        <div>
-          <TinyLabel>Tested Load</TinyLabel>
-          <TinyInput
-            value={data.testedLoad}
-            onChange={(event) => updateData({ testedLoad: event.target.value })}
-            placeholder="e.g., 2500 lbs"
-            aria-label="Tested load"
-          />
-        </div>
-      </div>
 
       <div>
         <TinyLabel>Motor information</TinyLabel>
@@ -297,6 +226,43 @@ function MotorTestForm({
               inputMode="decimal"
             />
           </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <TinyLabel>Rated Load</TinyLabel>
+          <TinyInput
+            value={data.ratedLoad}
+            onChange={(event) => updateData({ ratedLoad: event.target.value })}
+            placeholder="e.g., 4000 lbs"
+            aria-label="Rated load"
+          />
+        </div>
+        <div>
+          <TinyLabel>Tested Load</TinyLabel>
+          <TinyInput
+            value={data.testedLoad}
+            onChange={(event) => updateData({ testedLoad: event.target.value })}
+            placeholder="e.g., 2500 lbs"
+            aria-label="Tested load"
+          />
+        </div>
+      </div>
+
+      <div>
+        <TinyLabel>Measured Voltage</TinyLabel>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {renderVoltageTable("voltIncoming", "Incoming")}
+          {renderVoltageTable("voltAfd", "AFD Output")}
+        </div>
+      </div>
+
+      <div>
+        <TinyLabel>Measured Current (AFD Output)</TinyLabel>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {renderCurrentTable("unloaded", "Unloaded")}
+          {renderCurrentTable("full", "Full Load")}
         </div>
       </div>
 
