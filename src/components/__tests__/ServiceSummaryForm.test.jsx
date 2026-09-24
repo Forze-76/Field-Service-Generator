@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ServiceSummaryForm from "../ServiceSummaryForm.jsx";
 import { makeEmptyServiceSummaryData } from "../../utils/fsr";
@@ -64,8 +64,8 @@ describe("ServiceSummaryForm", () => {
   it("allows adding a day with its own signature control", async () => {
     renderServiceSummary();
     const user = userEvent.setup();
-    expect(screen.getAllByRole("button", { name: "Sign" })).toHaveLength(1);
+    expect(within(document.getElementById("service-time-log")).getAllByRole("button", { name: "Sign" })).toHaveLength(1);
     await user.click(screen.getByRole("button", { name: /\+ Add day/i }));
-    expect(screen.getAllByRole("button", { name: "Sign" })).toHaveLength(2);
+    expect(within(document.getElementById("service-time-log")).getAllByRole("button", { name: "Sign" })).toHaveLength(2);
   });
 });
