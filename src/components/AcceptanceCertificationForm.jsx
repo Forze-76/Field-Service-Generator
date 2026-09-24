@@ -1,8 +1,9 @@
 import SignatureBox from "./SignatureBox.jsx";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import DocumentPreview from "./DocumentPreview.jsx";
 import SignaturePad from "./SignaturePad.jsx";
 import { ACCEPTANCE_CERT_DOC_NAME, ensureAcceptanceCertificationData, makeEmptyAcceptanceCertificationData } from "../utils/fsr";
+import { prefillAcceptanceContact } from "../utils/acceptanceContact.js";
 
 function TinyLabel({ children }) {
   return <div className="text-[11px] text-gray-600 mb-1">{children}</div>;
@@ -42,6 +43,11 @@ function AcceptanceCertificationForm({
   const [preview, setPreview] = useState(false);
   const [signing, setSigning] = useState(false);
   const data = useMemo(() => ensureAcceptanceCertificationData(doc?.data), [doc?.data]);
+
+  useEffect(() => {
+    const prefilled = prefillAcceptanceContact(data, report);
+    if (prefilled !== data) onUpdateDoc({ ...doc, data: prefilled });
+  }, [data, doc, report, onUpdateDoc]);
 
   const updateData = useCallback(
     (updater) => {

@@ -558,6 +558,7 @@ const normalizeGateInterlock = (value) => {
 export const ensureAcceptanceCertificationData = (data) => {
   const base = typeof data === "object" && data ? data : {};
   return {
+    contactPrefillComplete: !!base.contactPrefillComplete,
     jobName: typeof base.jobName === "string" ? base.jobName : "",
     pflowSerialNumber: typeof base.pflowSerialNumber === "string" ? base.pflowSerialNumber : "",
     modelNumber: typeof base.modelNumber === "string" ? base.modelNumber : "",

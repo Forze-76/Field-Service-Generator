@@ -1,4 +1,5 @@
 import { fillTimeLogDates } from "./utils/timeLogDates.js";
+import { prefillAcceptanceContact } from "./utils/acceptanceContact.js";
 import { serialFromJob } from './utils/jobNumber.js';
 import WorkSummary from './components/WorkSummary';
 import TripSetupPanel from './components/TripSetupPanel';
@@ -280,6 +281,7 @@ function Workspace({
       const inviteMeta = draft.inviteMeta || null;
       const projectContact = inviteMeta?.projectContact || {};
       const installContact = inviteMeta?.installContact || {};
+      const contactSource = { inviteMeta, sharedSite: draft.sharedSite };
       const documents = orderNewDocuments(makeDocs(tripType), tripType).map((doc) => {
         const name = (doc.name || "").toLowerCase();
         if (name === "service summary") {
@@ -298,10 +300,7 @@ function Workspace({
             ...doc,
             data: {
               ...doc.data,
-              customerContactName: projectContact.name || installContact.name || "",
-              customerContactPhone: projectContact.phone || installContact.phone || "",
-              customerContactEmail: projectContact.email || installContact.email || "",
-              customerCompany: projectContact.company || installContact.company || "",
+              ...prefillAcceptanceContact(doc.data, contactSource),
               startupDate: String(startAt || "").slice(0, 10),
             },
           };
