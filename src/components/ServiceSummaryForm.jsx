@@ -128,6 +128,20 @@ function ServiceSummaryForm({ report, doc, user, onUpdateDoc, onOpenTemplates })
         <TinyInput type="date" value={data.acceptanceDate} onChange={e => setData({ acceptanceDate: e.target.value })} />
       </div>
 
+      <details key={doc.id} className="rounded-xl border p-3">
+        <summary className="cursor-pointer text-sm font-medium">Edit contact details</summary>
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <label className="text-sm">
+            PM Contact
+            <TinyInput value={data.pmContact || ""} onChange={e => setData({ pmContact: e.target.value })} />
+          </label>
+          <label className="text-sm">
+            Customer Contact
+            <TinyInput value={data.customerContact || ""} onChange={e => setData({ customerContact: e.target.value })} />
+          </label>
+        </div>
+      </details>
+
       <div>
         <TinyLabel>Additional notes</TinyLabel>
         <TinyTextArea value={data.additionalNotes} onChange={(e) => setData({ additionalNotes: e.target.value })} />

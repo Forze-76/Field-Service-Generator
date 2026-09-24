@@ -33,6 +33,22 @@ function renderServiceSummary({ model = "D" } = {}) {
 }
 
 describe("ServiceSummaryForm", () => {
+  it("keeps contact editing collapsed and preserves edits after closing it", async () => {
+    renderServiceSummary();
+    const user = userEvent.setup();
+    const toggle = screen.getByText("Edit contact details");
+    const section = toggle.closest("details");
+    expect(section).not.toHaveAttribute("open");
+    await user.click(toggle);
+    await user.type(screen.getByLabelText("Customer Contact"), "Jordan / 555-0100");
+    await user.type(screen.getByLabelText("PM Contact"), "Taylor");
+    await user.click(toggle);
+    expect(section).not.toHaveAttribute("open");
+    await user.click(toggle);
+    expect(screen.getByLabelText("Customer Contact")).toHaveValue("Jordan / 555-0100");
+    expect(screen.getByLabelText("PM Contact")).toHaveValue("Taylor");
+  });
+
   it("does not render Model label/icon", () => {
     renderServiceSummary();
     expect(screen.queryByText(/Model:/i)).toBeNull();
