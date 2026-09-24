@@ -11,12 +11,12 @@ function TinyLabel({ children }) {
 
 function TinyInput(props) {
   const { className = "", ...rest } = props;
-  return <input {...rest} className={`w-full rounded-lg border px-2 py-1 text-[13px] ${className}`} />;
+  return <input {...rest} className={`min-w-0 w-full rounded-lg border px-3 py-2 text-[13px] ${className}`} />;
 }
 
 function TinyTextarea(props) {
   const { className = "", rows = 3, ...rest } = props;
-  return <textarea {...rest} rows={rows} className={`w-full rounded-lg border px-2 py-1 text-[13px] ${className}`} />;
+  return <textarea {...rest} rows={rows} className={`min-w-0 w-full rounded-lg border px-3 py-2 text-[13px] ${className}`} />;
 }
 
 function TinyOptionButton({ label, active, onClick }) {
@@ -34,7 +34,15 @@ function TinyOptionButton({ label, active, onClick }) {
   );
 }
 
-//
+function CertificateSection({ number, title, hint, children }) {
+  return <section className="rounded-xl border bg-white overflow-hidden">
+    <div className="flex items-center gap-3 border-b bg-slate-50 px-4 py-3">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-800 text-sm font-semibold">{number}</span>
+      <div><h3>{title}</h3><p className="text-xs text-slate-500 mt-1">{hint}</p></div>
+    </div>
+    <div className="p-4 space-y-4">{children}</div>
+  </section>;
+}
 
 function AcceptanceCertificationForm({
   doc = { data: makeEmptyAcceptanceCertificationData(), name: ACCEPTANCE_CERT_DOC_NAME },
@@ -79,14 +87,25 @@ function AcceptanceCertificationForm({
     [updateData],
   );
 
-  // No local site/address summary in this editor
+  const field = (key, label, props = {}) => (
+    <label className="block min-w-0 text-xs text-slate-600">
+      <span className="block mb-1">{label}</span>
+      <TinyInput value={data[key]} onChange={event => updateData({ [key]: event.target.value })} {...props} />
+    </label>
+  );
 
   return (
-    <div className="space-y-6">
-      <button type="button" className="px-3 py-2 rounded-lg border" onClick={() => setPreview(true)}>Preview Document</button>
+    <div className="space-y-4">
       {preview && <DocumentPreview report={report} doc={doc} user={user} templateId="acceptance-certification" onUpdateDoc={onUpdateDoc} onOpenTemplates={() => { setPreview(false); onOpenTemplates?.(); }} onClose={() => setPreview(false)} />}
       {signing && <SignaturePad label="Customer signature" value={data.acceptedByInk} onSave={ink => { updateData({ acceptedByInk: ink }); setSigning(false); }} onClose={() => setSigning(false)} />}
-      {/* Meta fields (Job/Serial/Model/Address) removed from this editor */}
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-teal-50 p-4">
+        <div>
+          <p className="font-semibold text-teal-900">Acceptance review</p>
+          <p className="text-sm text-slate-600 mt-1">Record the checks, confirm training, then review with the customer.</p>
+        </div>
+        <button type="button" className="bg-white shrink-0" onClick={() => setPreview(true)}>Preview Document</button>
+      </div>
 
       <details key={doc.id} className="rounded-lg border p-3">
         <summary className="cursor-pointer text-sm font-medium">Edit contact details</summary>
@@ -148,222 +167,92 @@ function AcceptanceCertificationForm({
         </div>
       </details>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <TinyLabel>Startup Date</TinyLabel>
-          <TinyInput
-            id="acceptance-startup-date"
-            value={data.startupDate}
-            onChange={(event) => updateData({ startupDate: event.target.value })}
-            type="date"
-          />
+      <CertificateSection number="1" title="Tests & verification" hint="Record the unit’s acceptance checks.">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {field('startupDate', 'Startup date', { id: 'acceptance-startup-date', type: 'date' })}
+          {field('loadCapacity', 'Load capacity', { id: 'acceptance-load-capacity', placeholder: 'Rated capacity' })}
         </div>
-        <div>
-          <TinyLabel>Load Capacity</TinyLabel>
-          <TinyInput
-            id="acceptance-load-capacity"
-            value={data.loadCapacity}
-            onChange={(event) => updateData({ loadCapacity: event.target.value })}
-            placeholder="Rated capacity"
-          />
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <div>
-          <TinyLabel>Load Test</TinyLabel>
-          <div className="flex flex-wrap items-center gap-3">
-            <TinyOptionButton active={!!data.loadTest.yes} label="Yes" onClick={() => updateLoadTest({ yes: true })} />
-            <TinyOptionButton active={!data.loadTest.yes} label="No" onClick={() => updateLoadTest({ yes: false })} />
-            <TinyInput
-              value={data.loadTest.percent}
-              onChange={(event) => updateLoadTest({ percent: event.target.value })}
-              placeholder="% of lift capacity"
-              className="w-40 md:w-48"
-              aria-label="Percent of lift capacity"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <TinyLabel>Operation Test</TinyLabel>
-            <div className="flex items-center gap-3">
-              <TinyOptionButton
-                active={!!data.operationTestYes}
-                label="Yes"
-                onClick={() => updateData({ operationTestYes: true })}
-              />
-              <TinyOptionButton
-                active={!data.operationTestYes}
-                label="No"
-                onClick={() => updateData({ operationTestYes: false })}
-              />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <fieldset className="min-w-0 rounded-lg border p-3 space-y-3">
+            <legend className="px-1 text-sm font-semibold">Load test</legend>
+            <div className="flex gap-2">
+              <TinyOptionButton active={!!data.loadTest.yes} label="Yes" onClick={() => updateLoadTest({ yes: true })} />
+              <TinyOptionButton active={!data.loadTest.yes} label="No" onClick={() => updateLoadTest({ yes: false })} />
             </div>
-          </div>
-          <div>
-            <TinyLabel>Operation Comments</TinyLabel>
-            <TinyTextarea
-              value={data.operationComments}
-              onChange={(event) => updateData({ operationComments: event.target.value })}
-              rows={3}
-              placeholder="Notes from operation test"
-            />
-          </div>
+            <label className="block text-xs text-slate-600">Percent of lift capacity
+              <TinyInput className="mt-1" value={data.loadTest.percent} onChange={event => updateLoadTest({ percent: event.target.value })} placeholder="e.g., 100%" aria-label="Percent of lift capacity" />
+            </label>
+          </fieldset>
+          <fieldset className="min-w-0 rounded-lg border p-3 space-y-3">
+            <legend className="px-1 text-sm font-semibold">Operation test</legend>
+            <div className="flex gap-2">
+              <TinyOptionButton active={!!data.operationTestYes} label="Yes" onClick={() => updateData({ operationTestYes: true })} />
+              <TinyOptionButton active={!data.operationTestYes} label="No" onClick={() => updateData({ operationTestYes: false })} />
+            </div>
+            <label className="block text-xs text-slate-600">Operation comments
+              <TinyTextarea className="mt-1" rows={2} value={data.operationComments} onChange={event => updateData({ operationComments: event.target.value })} placeholder="Notes from operation test" />
+            </label>
+          </fieldset>
+          <fieldset className="min-w-0 rounded-lg border p-3">
+            <legend className="px-1 text-sm font-semibold">Gate / interlock</legend>
+            <div className="flex flex-wrap gap-2">
+              {[['yes', 'Yes'], ['no', 'No'], ['na', 'N/A']].map(([value, label]) => <TinyOptionButton key={value} active={data.gateInterlock === value} label={label} onClick={() => updateData({ gateInterlock: value })} />)}
+            </div>
+          </fieldset>
         </div>
-
-        <div>
-          <TinyLabel>Gate / Interlock</TinyLabel>
-          <div className="flex flex-wrap items-center gap-3">
-            <TinyOptionButton
-              active={data.gateInterlock === "yes"}
-              label="Yes"
-              onClick={() => updateData({ gateInterlock: "yes" })}
-            />
-            <TinyOptionButton
-              active={data.gateInterlock === "no"}
-              label="No"
-              onClick={() => updateData({ gateInterlock: "no" })}
-            />
-            <TinyOptionButton
-              active={data.gateInterlock === "na"}
-              label="N/A"
-              onClick={() => updateData({ gateInterlock: "na" })}
-            />
+        <details className="rounded-lg border p-3" key={`${doc.id}-other-tests`}>
+          <summary className="cursor-pointer text-sm font-medium">Additional tests (optional)</summary>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+            {['otherTest1', 'otherTest2'].map((key, index) => <label key={key} className="text-xs text-slate-600">Other test {index + 1}
+              <TinyTextarea className="mt-1" rows={2} value={data[key]} onChange={event => updateData({ [key]: event.target.value })} />
+            </label>)}
           </div>
-        </div>
+        </details>
+        <div className="max-w-[180px]">{field('customerInitials', 'Customer initials', { placeholder: 'Initials' })}</div>
+      </CertificateSection>
 
+      <CertificateSection number="2" title="Personnel instructed" hint="Who received operating and maintenance instruction?">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {['instructed1', 'instructed2'].map((key, index) => <div key={key} className="rounded-lg bg-slate-50 p-3 space-y-2">
+            <p className="text-xs font-semibold text-slate-500">PERSON {index + 1}</p>
+            {['name', 'company'].map(part => <label key={part} className="block text-xs text-slate-600">
+              <span className="block mb-1">{part === 'name' ? 'Name' : 'Company'}</span>
+              <TinyInput value={data[key][part]} onChange={event => updatePersonnel(key, { [part]: event.target.value })} />
+            </label>)}
+          </div>)}
+        </div>
+      </CertificateSection>
+
+      <CertificateSection number="3" title="Customer acceptance" hint="Confirm who is accepting the unit, then preview before signing.">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <TinyLabel>Other Test 1</TinyLabel>
-            <TinyTextarea
-              value={data.otherTest1}
-              onChange={(event) => updateData({ otherTest1: event.target.value })}
-              rows={2}
-            />
+          <div className="space-y-3">
+            {field('acceptedByName', 'Accepted by — name', { id: 'acceptance-accepted-by', placeholder: 'Name' })}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {field('acceptedByTitle', 'Title')}
+              {field('acceptedByCompany', 'Company')}
+            </div>
+            {field('acceptanceDate', 'Acceptance date', { id: 'acceptance-date', type: 'date' })}
           </div>
-          <div>
-            <TinyLabel>Other Test 2</TinyLabel>
-            <TinyTextarea
-              value={data.otherTest2}
-              onChange={(event) => updateData({ otherTest2: event.target.value })}
-              rows={2}
-            />
+          <div className="rounded-xl bg-teal-50 p-3 space-y-3">
+            <div className="flex flex-wrap justify-between items-center gap-2">
+              <p className="text-sm font-semibold">Customer signature</p>
+              <span className="text-xs text-teal-800">{data.acceptedByInk ? 'Signature captured' : 'Awaiting signature'}</span>
+            </div>
+            <SignatureBox label="Customer signature" value={data.acceptedByInk} onClick={() => setSigning(true)} />
+            <button type="button" className="w-full bg-white" onClick={() => setPreview(true)}>Review filled document</button>
           </div>
         </div>
-
-        <div className="max-w-xs">
-          <TinyLabel>Customer Initials</TinyLabel>
-          <TinyInput
-            value={data.customerInitials}
-            onChange={(event) => updateData({ customerInitials: event.target.value })}
-            placeholder="Initials"
-          />
+        <div className="border-t pt-3">
+          <p className="text-sm font-medium mb-2">PFlow representative</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {field('pflowRepName', 'Representative name', { placeholder: 'Representative' })}
+            {field('pflowRepPhone', 'Phone', { inputMode: 'tel' })}
+          </div>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <TinyLabel>Personnel Instructed — Name</TinyLabel>
-          <TinyInput
-            value={data.instructed1.name}
-            onChange={(event) => updatePersonnel("instructed1", { name: event.target.value })}
-            placeholder="Name"
-          />
-        </div>
-        <div>
-          <TinyLabel>Personnel Instructed — Company</TinyLabel>
-          <TinyInput
-            value={data.instructed1.company}
-            onChange={(event) => updatePersonnel("instructed1", { company: event.target.value })}
-            placeholder="Company"
-          />
-        </div>
-        <div>
-          <TinyLabel>Personnel Instructed #2 — Name</TinyLabel>
-          <TinyInput
-            value={data.instructed2.name}
-            onChange={(event) => updatePersonnel("instructed2", { name: event.target.value })}
-            placeholder="Name"
-          />
-        </div>
-        <div>
-          <TinyLabel>Personnel Instructed #2 — Company</TinyLabel>
-          <TinyInput
-            value={data.instructed2.company}
-            onChange={(event) => updatePersonnel("instructed2", { company: event.target.value })}
-            placeholder="Company"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <TinyLabel>Accepted By — Name</TinyLabel>
-          <TinyInput
-            id="acceptance-accepted-by"
-            value={data.acceptedByName}
-            onChange={(event) => updateData({ acceptedByName: event.target.value })}
-            placeholder="Name"
-          />
-        </div>
-        <div>
-          <TinyLabel>Customer signature</TinyLabel>
-          <SignatureBox label="Customer signature" value={data.acceptedByInk} onClick={() => setSigning(true)} />
-        </div>
-        <div>
-          <TinyLabel>Accepted By — Title</TinyLabel>
-          <TinyInput
-            value={data.acceptedByTitle}
-            onChange={(event) => updateData({ acceptedByTitle: event.target.value })}
-            placeholder="Title"
-          />
-        </div>
-        <div>
-          <TinyLabel>Accepted By — Company</TinyLabel>
-          <TinyInput
-            value={data.acceptedByCompany}
-            onChange={(event) => updateData({ acceptedByCompany: event.target.value })}
-            placeholder="Company"
-          />
-        </div>
-        <div>
-          <TinyLabel>Acceptance Date</TinyLabel>
-          <TinyInput
-            id="acceptance-date"
-            value={data.acceptanceDate}
-            onChange={(event) => updateData({ acceptanceDate: event.target.value })}
-            type="date"
-          />
-        </div>
-        <div>
-          <TinyLabel>PFlow Representative — Name</TinyLabel>
-          <TinyInput
-            value={data.pflowRepName}
-            onChange={(event) => updateData({ pflowRepName: event.target.value })}
-            placeholder="Representative"
-          />
-        </div>
-        <div>
-          <TinyLabel>PFlow Representative — Phone</TinyLabel>
-          <TinyInput
-            value={data.pflowRepPhone}
-            onChange={(event) => updateData({ pflowRepPhone: event.target.value })}
-            placeholder="(###) ###-####"
-            inputMode="tel"
-          />
-        </div>
-      </div>
-
-      <div>
-        <TinyLabel>Notes (optional)</TinyLabel>
-        <TinyTextarea
-          value={data.acceptanceNotes}
-          onChange={(event) => updateData({ acceptanceNotes: event.target.value })}
-          rows={4}
-          placeholder="Additional notes"
-        />
-      </div>
+        <label className="block text-xs text-slate-600">Notes (optional)
+          <TinyTextarea className="mt-1" value={data.acceptanceNotes} onChange={event => updateData({ acceptanceNotes: event.target.value })} rows={2} placeholder="Additional notes" />
+        </label>
+      </CertificateSection>
     </div>
   );
 }
