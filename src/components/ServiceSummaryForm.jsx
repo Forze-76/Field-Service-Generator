@@ -1,3 +1,4 @@
+import SignatureBox from "./SignatureBox.jsx";
 import React, { useCallback, useState } from "react";
 import DocumentPreview from "./DocumentPreview.jsx";
 import SignaturePad from "./SignaturePad.jsx";
@@ -97,7 +98,7 @@ function ServiceSummaryForm({ report, doc, user, onUpdateDoc, onOpenTemplates })
                 />
               </div>
               <div className="px-2 py-1 flex items-center gap-2">
-                <button type="button" className="px-2 py-1 rounded-lg border" onClick={() => setSigning({ key: `timeLog:${data.timeLogs.findIndex(r => r.id === row.id)}`, label: 'Day signature', value: row.signatureInk })}>{row.signatureInk ? 'Edit signature' : 'Sign'}</button>
+                <SignatureBox compact label="Day signature" value={row.signatureInk} onClick={() => setSigning({ key: `timeLog:${data.timeLogs.findIndex(r => r.id === row.id)}`, label: 'Day signature', value: row.signatureInk })} />
                 <button className="px-2 py-1 rounded-lg border" onClick={() => removeRow(row.id)}>
                   Remove
                 </button>
@@ -128,7 +129,7 @@ function ServiceSummaryForm({ report, doc, user, onUpdateDoc, onOpenTemplates })
         </div>
         <div>
           <TinyLabel>Supervisor Signature</TinyLabel>
-          <button type="button" className="px-3 py-2 rounded-lg border" onClick={() => setSigning({ key: 'supervisorInk', label: 'Supervisor signature', value: data.supervisorInk })}>{data.supervisorInk ? 'Edit signature' : 'Sign with finger'}</button>
+          <SignatureBox label="Supervisor signature" value={data.supervisorInk} onClick={() => setSigning({ key: 'supervisorInk', label: 'Supervisor signature', value: data.supervisorInk })} />
         </div>
         {/* Removed PFlow Service Technician */}
         <div>
@@ -137,7 +138,7 @@ function ServiceSummaryForm({ report, doc, user, onUpdateDoc, onOpenTemplates })
         </div>
         <div>
           <TinyLabel>Manager Signature</TinyLabel>
-          <button type="button" className="px-3 py-2 rounded-lg border" onClick={() => setSigning({ key: 'managerInk', label: 'Manager signature', value: data.managerInk })}>{data.managerInk ? 'Edit signature' : 'Sign with finger'}</button>
+          <SignatureBox label="Manager signature" value={data.managerInk} onClick={() => setSigning({ key: 'managerInk', label: 'Manager signature', value: data.managerInk })} />
         </div>
         <div></div>
         <div>

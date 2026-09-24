@@ -1,3 +1,4 @@
+import SignatureBox from "./SignatureBox.jsx";
 import React, { useCallback, useMemo, useState } from "react";
 import DocumentPreview from "./DocumentPreview.jsx";
 import SignaturePad from "./SignaturePad.jsx";
@@ -287,13 +288,16 @@ function AcceptanceCertificationForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <TinyLabel>Accepted By — Name</TinyLabel>
-          <button type="button" className="mb-2 px-3 py-2 rounded-lg border" onClick={() => setSigning(true)}>{data.acceptedByInk ? "Edit signature" : "Sign with finger"}</button>
           <TinyInput
             id="acceptance-accepted-by"
             value={data.acceptedByName}
             onChange={(event) => updateData({ acceptedByName: event.target.value })}
             placeholder="Name"
           />
+        </div>
+        <div>
+          <TinyLabel>Customer signature</TinyLabel>
+          <SignatureBox label="Customer signature" value={data.acceptedByInk} onClick={() => setSigning(true)} />
         </div>
         <div>
           <TinyLabel>Accepted By — Title</TinyLabel>
