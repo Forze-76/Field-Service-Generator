@@ -1,6 +1,6 @@
 import TripLifts from "./components/TripLifts";
 import { tripKey, addTripLifts, updateTripLift, toggleLiftOverride, setTripHours, updateLiftDocuments } from "./utils/multiLift";
-import { fillTimeLogDates } from "./utils/timeLogDates.js";
+import { populateTripTimeLogs } from "./utils/timeLogDates.js";
 import { prefillAcceptanceContact } from "./utils/acceptanceContact.js";
 import { serialFromJob } from './utils/jobNumber.js';
 import WorkSummary from './components/WorkSummary';
@@ -291,7 +291,7 @@ function Workspace({
             ...doc,
             data: {
               ...doc.data,
-              timeLogs: fillTimeLogDates(doc.data.timeLogs, startAt),
+              timeLogs: populateTripTimeLogs(doc.data.timeLogs, startAt, endAt, uid),
               pmContact: [projectContact.name, projectContact.email].filter(Boolean).join(" | "),
               customerContact: [installContact.name, installContact.phone].filter(Boolean).join(" | "),
             },

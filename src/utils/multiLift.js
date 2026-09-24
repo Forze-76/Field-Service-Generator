@@ -1,7 +1,7 @@
 import { makeDocs, uid, isAcceptanceCertDocName } from './fsr';
 import { orderNewDocuments } from './fieldWorkflow';
 import { serialFromJob } from './jobNumber';
-import { fillTimeLogDates } from './timeLogDates';
+import { populateTripTimeLogs } from './timeLogDates';
 import { prefillAcceptanceContact } from './acceptanceContact';
 
 export const tripKey = report => report.tripId || report.id;
@@ -39,7 +39,7 @@ export function addTripLifts(reports, sourceId, lifts) {
   if (!serials.length || serials.some(serial => !serial) || new Set(serials).size !== serials.length || reports.some(r => tripKey(r) === tripId && serials.includes(serialFromJob(r.jobNo)))) throw new Error('Each lift needs a unique valid job number within this trip.');
   const added = lifts.map(lift => {
     const documents = orderNewDocuments(makeDocs(lift.tripType), lift.tripType).map(doc => {
-      if (doc.name === 'Service Summary') return { ...doc, data: { ...doc.data, timeLogs: fillTimeLogDates(doc.data.timeLogs, shared.startAt), pmContact: [shared.inviteMeta?.projectContact?.name, shared.inviteMeta?.projectContact?.email].filter(Boolean).join(' | '), customerContact: [shared.inviteMeta?.installContact?.name, shared.inviteMeta?.installContact?.phone].filter(Boolean).join(' | ') || shared.sharedSite?.customerContact || '' } };
+      if (doc.name === 'Service Summary') return { ...doc, data: { ...doc.data, timeLogs: populateTripTimeLogs(doc.data.timeLogs, shared.startAt, shared.endAt, uid), pmContact: [shared.inviteMeta?.projectContact?.name, shared.inviteMeta?.projectContact?.email].filter(Boolean).join(' | '), customerContact: [shared.inviteMeta?.installContact?.name, shared.inviteMeta?.installContact?.phone].filter(Boolean).join(' | ') || shared.sharedSite?.customerContact || '' } };
       if (isAcceptanceCertDocName(doc.name)) return { ...doc, data: { ...prefillAcceptanceContact(doc.data, shared), startupDate: String(shared.startAt || '').slice(0, 10) } };
       return doc;
     });

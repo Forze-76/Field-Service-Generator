@@ -1,9 +1,9 @@
 import { Trash2 } from "lucide-react";
 import FormSection from "./FormSection.jsx";
 import TimeWheelInput from "./TimeWheelInput.jsx";
-import { fillTimeLogDates, followingDay, reportStartDay } from "../utils/timeLogDates.js";
+import { populateTripTimeLogs, followingDay, reportStartDay } from "../utils/timeLogDates.js";
 import SignatureBox from "./SignatureBox.jsx";
-import React, { useCallback, useState, useEffect, useRef } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import DocumentPreview from "./DocumentPreview.jsx";
 import SignaturePad from "./SignaturePad.jsx";
 import { patchInk } from "../utils/pdfInk.js";
@@ -31,15 +31,13 @@ function ServiceSummaryForm({ report, doc, user, onUpdateDoc, onOpenTemplates })
     (patch) => onUpdateDoc({ ...doc, data: { ...data, ...patch } }),
     [doc, data, onUpdateDoc],
   );
-  const initializedDates = useRef('');
   useEffect(() => {
-    const key = `${doc.id}:${report.startAt}`;
-    if (initializedDates.current === key || !reportStartDay(report.startAt)) return;
-    initializedDates.current = key;
-    const rows = data.timeLogs || [];
-    const datedRows = fillTimeLogDates(rows, report.startAt);
-    if (datedRows.some((row, index) => row !== rows[index])) setData({ timeLogs: datedRows });
-  }, [doc.id, report.startAt, data.timeLogs, setData]);
+    const range = `${reportStartDay(report.startAt)}:${reportStartDay(report.endAt)}`;
+    if (report.useTripHours || data.timeLogRangeInitialized === range || !reportStartDay(report.startAt)) return;
+    if (report.endAt && reportStartDay(report.endAt) < reportStartDay(report.startAt)) return;
+    const timeLogs = populateTripTimeLogs(data.timeLogs || [], report.startAt, report.endAt, uid);
+    setData({ timeLogs, timeLogRangeInitialized: range });
+  }, [report.startAt, report.endAt, report.useTripHours, data.timeLogs, data.timeLogRangeInitialized, setData]);
   const addRow = useCallback(() => {
     if ((data.timeLogs || []).length >= 7) return;
     setData({
