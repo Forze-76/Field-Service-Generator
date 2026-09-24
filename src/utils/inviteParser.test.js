@@ -83,3 +83,28 @@ describe("invitation dates and identity", () => {
 it.each(["20260230", "20261301", "20260001"])("rejects invalid date %s instead of normalizing it", (date) => {
   expect(() => parseTripInvite(invite.replace("20260921", date))).toThrow(/Invalid invitation date/);
 });
+
+const contactInvite = (lines) => invite.replace(/DESCRIPTION:[^\n]*/, `DESCRIPTION:PROJECT CONTACT:\\n${lines.join("\\n")}`);
+
+it("separates a pipe signature from phone numbers on the same line", () => {
+  const result = parseTripInvite(contactInvite([
+    "Reed Davis | New Equipment Representative | Arbon | 414-555-0101 Direct | (414) 555-0102 Cell",
+    "Rdavis@example.com <mailto:Rdavis@example.com>",
+  ]));
+  expect(result.inviteMeta.projectContact).toEqual({
+    name: "Reed Davis", company: "Arbon", phone: "414-555-0101", alternatePhone: "(414) 555-0102", email: "Rdavis@example.com",
+  });
+  expect(result.sharedSite.customerContact).toBe("Reed Davis | 414-555-0101");
+});
+
+it("extracts labeled contact values and extensions without putting labels in fields", () => {
+  const result = parseTripInvite(contactInvite([
+    "Alice Example", "Example Integrator", "Phone: +1 (414) 555-0101 ext. 23", "Cell: 4145550102", "Email: alice@example.com",
+  ]));
+  expect(result.inviteMeta.projectContact).toEqual({name: "Alice Example", company: "Example Integrator", phone: "+1 (414) 555-0101 ext. 23", alternatePhone: "4145550102", email: "alice@example.com"});
+});
+
+it("leaves an absent phone blank in a pipe-separated signature", () => {
+  expect(parseTripInvite(contactInvite(["Reed Davis | New Equipment Representative | Arbon", "Rdavis@example.com"])).inviteMeta.projectContact)
+    .toEqual({ name: "Reed Davis", company: "Arbon", phone: "", alternatePhone: "", email: "Rdavis@example.com" });
+});

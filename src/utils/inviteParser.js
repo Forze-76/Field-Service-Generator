@@ -13,15 +13,28 @@ const compactLines = (value) => String(value || "")
 
 const parseContact = (description, label) => {
   const lines = compactLines(section(description, label));
-  const email = lines.find((line) => /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/.test(line)) || "";
-  const phones = lines.filter((line) => /(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}/.test(line));
-  const plain = lines.filter((line) => line !== email && !phones.includes(line));
+  const phones = [];
+  const emails = [];
+  const identityLines = [];
+  for (const line of lines) {
+    // A signature may put the name, title, company and phone on one line.
+    // Extract actual values rather than assigning the entire line to a field.
+    const identity = line.split("|").map((part) => part
+      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, (email) => { emails.push(email); return ""; })
+      .replace(/(?<!\d)(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]*\d{3}[-.\s]*\d{4}(?:\s*(?:ext\.?|x)\s*\d+)?(?!\d)/gi, (phone) => { phones.push(phone); return ""; })
+      .replace(/^\s*(?:phone|telephone|tel|direct|cell|mobile|office|fax|email|e-mail)\s*:?\s*$/i, "")
+      .replace(/^[\s:;,<>-]+|[\s:;,<>-]+$/g, "")
+      .trim()).filter(Boolean);
+    if (identity.length) identityLines.push(identity);
+  }
+  const firstLine = identityLines[0] || [];
   return {
-    name: plain[0] || "",
-    company: plain[1] || "",
-    phone: phones[0]?.replace(/\s+(Direct|Cell)$/i, "") || "",
-    alternatePhone: phones[1]?.replace(/\s+(Direct|Cell)$/i, "") || "",
-    email: email.match(/\b[^\s@]+@[^\s@]+\.[^\s@]+\b/)?.[0] || "",
+    name: firstLine[0] || "",
+    // In a pipe-separated signature, a middle segment is commonly the title.
+    company: firstLine.length > 1 ? firstLine.at(-1) : identityLines[1]?.[0] || "",
+    phone: phones[0] || "",
+    alternatePhone: phones[1] || "",
+    email: emails[0] || "",
   };
 };
 
