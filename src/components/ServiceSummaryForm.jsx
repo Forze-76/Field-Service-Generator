@@ -1,4 +1,7 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
+import DocumentPreview from "./DocumentPreview.jsx";
+import SignaturePad from "./SignaturePad.jsx";
+import { patchInk } from "../utils/pdfInk.js";
 import { makeEmptyServiceSummaryData, uid } from "../utils/fsr";
 
 function TinyLabel({ children }) {
@@ -15,65 +18,14 @@ function TinyTextArea(props) {
 
 // Model badge removed from UI per requirements
 
-function SharedSiteBlock({ shared, onChange }) {
-  return (
-    <div className="rounded-2xl border p-4 bg-gray-50">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div>
-          <TinyLabel>Job Name</TinyLabel>
-          <TinyInput id="shared-job-name" value={shared.jobName || ""} onChange={(e) => onChange({ jobName: e.target.value })} />
-        </div>
-        <div>
-          <TinyLabel>PFlow Serial Number</TinyLabel>
-          <TinyInput
-            id="shared-serial-number"
-            value={shared.serialNumberText || ""}
-            onChange={(e) => onChange({ serialNumberText: e.target.value })}
-            placeholder="e.g., M-12345"
-          />
-        </div>
-        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <TinyLabel>Site Street Address</TinyLabel>
-            <TinyInput id="shared-site-address" value={shared.siteStreetAddress || ""} onChange={(e) => onChange({ siteStreetAddress: e.target.value })} />
-          </div>
-          <div>
-            <TinyLabel>Site Mailing Address</TinyLabel>
-            <TinyInput value={shared.siteMailingAddress || ""} onChange={(e) => onChange({ siteMailingAddress: e.target.value })} />
-          </div>
-        </div>
-        <div>
-          <TinyLabel>City</TinyLabel>
-          <TinyInput id="shared-city" value={shared.siteCity || ""} onChange={(e) => onChange({ siteCity: e.target.value })} />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <TinyLabel>State</TinyLabel>
-            <TinyInput value={shared.siteState || ""} onChange={(e) => onChange({ siteState: e.target.value })} />
-          </div>
-          <div>
-            <TinyLabel>Zip Code</TinyLabel>
-            <TinyInput value={shared.siteZip || ""} onChange={(e) => onChange({ siteZip: e.target.value })} />
-          </div>
-        </div>
-      </div>
-      <div className="text-[11px] text-gray-500 mt-2">Filled once and shared across all documents for this report.</div>
-    </div>
-  );
-}
-
-function ServiceSummaryForm({ report, doc, onUpdateReport, onUpdateDoc }) {
+function ServiceSummaryForm({ report, doc, user, onUpdateDoc, onOpenTemplates }) {
+  const [preview, setPreview] = useState(false);
+  const [signing, setSigning] = useState(null);
   const data = doc.data || makeEmptyServiceSummaryData();
   const setData = useCallback(
     (patch) => onUpdateDoc({ ...doc, data: { ...data, ...patch } }),
     [doc, data, onUpdateDoc],
   );
-  const shared = report.sharedSite || {};
-  const setShared = useCallback(
-    (patch) => onUpdateReport({ sharedSite: { ...shared, ...patch } }),
-    [onUpdateReport, shared],
-  );
-
   const addRow = useCallback(() => {
     if ((data.timeLogs || []).length >= 7) return;
     setData({
@@ -84,7 +36,8 @@ function ServiceSummaryForm({ report, doc, onUpdateReport, onUpdateDoc }) {
 
   return (
     <div className="space-y-6">
-      <SharedSiteBlock shared={shared} onChange={setShared} />
+      {preview && <DocumentPreview report={report} doc={doc} user={user} templateId="service-summary" onUpdateDoc={onUpdateDoc} onOpenTemplates={() => { setPreview(false); onOpenTemplates?.(); }} onClose={() => setPreview(false)} />}
+      {signing && <SignaturePad label={signing.label} value={signing.value} onSave={ink => { onUpdateDoc({ ...doc, data: patchInk(data, signing.key, ink) }); setSigning(null); }} onClose={() => setSigning(null)} />}
 
       <div>
         <div className="flex items-center justify-between mb-2">
@@ -144,13 +97,7 @@ function ServiceSummaryForm({ report, doc, onUpdateReport, onUpdateDoc }) {
                 />
               </div>
               <div className="px-2 py-1 flex items-center gap-2">
-                <TinyInput
-                  placeholder="name/initials"
-                  value={row.signature}
-                  onChange={(e) =>
-                    setData({ timeLogs: data.timeLogs.map((r) => (r.id === row.id ? { ...r, signature: e.target.value } : r)) })
-                  }
-                />
+                <button type="button" className="px-2 py-1 rounded-lg border" onClick={() => setSigning({ key: `timeLog:${data.timeLogs.findIndex(r => r.id === row.id)}`, label: 'Day signature', value: row.signatureInk })}>{row.signatureInk ? 'Edit signature' : 'Sign'}</button>
                 <button className="px-2 py-1 rounded-lg border" onClick={() => removeRow(row.id)}>
                   Remove
                 </button>
@@ -168,7 +115,7 @@ function ServiceSummaryForm({ report, doc, onUpdateReport, onUpdateDoc }) {
           <TinyTextArea id="service-performed" value={data.servicePerformed} onChange={(e) => setData({ servicePerformed: e.target.value })} />
         </div>
         <div className="flex items-end justify-end">
-          <button type="button" className="px-2 py-1 rounded-lg border text-[13px]" onClick={() => {}}>
+          <button type="button" className="px-2 py-1 rounded-lg border text-[13px]" onClick={() => setPreview(true)}>
             Preview Document
           </button>
         </div>
@@ -181,11 +128,7 @@ function ServiceSummaryForm({ report, doc, onUpdateReport, onUpdateDoc }) {
         </div>
         <div>
           <TinyLabel>Supervisor Signature</TinyLabel>
-          <TinyInput
-            value={data.supervisorSignature}
-            onChange={(e) => setData({ supervisorSignature: e.target.value })}
-            placeholder="(name or initials)"
-          />
+          <button type="button" className="px-3 py-2 rounded-lg border" onClick={() => setSigning({ key: 'supervisorInk', label: 'Supervisor signature', value: data.supervisorInk })}>{data.supervisorInk ? 'Edit signature' : 'Sign with finger'}</button>
         </div>
         {/* Removed PFlow Service Technician */}
         <div>
@@ -194,11 +137,7 @@ function ServiceSummaryForm({ report, doc, onUpdateReport, onUpdateDoc }) {
         </div>
         <div>
           <TinyLabel>Manager Signature</TinyLabel>
-          <TinyInput
-            value={data.managerSignature}
-            onChange={(e) => setData({ managerSignature: e.target.value })}
-            placeholder="(name or initials)"
-          />
+          <button type="button" className="px-3 py-2 rounded-lg border" onClick={() => setSigning({ key: 'managerInk', label: 'Manager signature', value: data.managerInk })}>{data.managerInk ? 'Edit signature' : 'Sign with finger'}</button>
         </div>
         <div></div>
         <div>

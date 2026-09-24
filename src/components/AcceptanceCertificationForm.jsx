@@ -1,4 +1,6 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
+import DocumentPreview from "./DocumentPreview.jsx";
+import SignaturePad from "./SignaturePad.jsx";
 import { ACCEPTANCE_CERT_DOC_NAME, ensureAcceptanceCertificationData, makeEmptyAcceptanceCertificationData } from "../utils/fsr";
 
 function TinyLabel({ children }) {
@@ -34,8 +36,10 @@ function TinyOptionButton({ label, active, onClick }) {
 
 function AcceptanceCertificationForm({
   doc = { data: makeEmptyAcceptanceCertificationData(), name: ACCEPTANCE_CERT_DOC_NAME },
-  onUpdateDoc = () => {},
+  onUpdateDoc = () => {}, report, user, onOpenTemplates,
 }) {
+  const [preview, setPreview] = useState(false);
+  const [signing, setSigning] = useState(false);
   const data = useMemo(() => ensureAcceptanceCertificationData(doc?.data), [doc?.data]);
 
   const updateData = useCallback(
@@ -72,6 +76,9 @@ function AcceptanceCertificationForm({
 
   return (
     <div className="space-y-6">
+      <button type="button" className="px-3 py-2 rounded-lg border" onClick={() => setPreview(true)}>Preview Document</button>
+      {preview && <DocumentPreview report={report} doc={doc} user={user} templateId="acceptance-certification" onUpdateDoc={onUpdateDoc} onOpenTemplates={() => { setPreview(false); onOpenTemplates?.(); }} onClose={() => setPreview(false)} />}
+      {signing && <SignaturePad label="Customer signature" value={data.acceptedByInk} onSave={ink => { updateData({ acceptedByInk: ink }); setSigning(false); }} onClose={() => setSigning(false)} />}
       {/* Meta fields (Job/Serial/Model/Address) removed from this editor */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -280,6 +287,7 @@ function AcceptanceCertificationForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <TinyLabel>Accepted By — Name</TinyLabel>
+          <button type="button" className="mb-2 px-3 py-2 rounded-lg border" onClick={() => setSigning(true)}>{data.acceptedByInk ? "Edit signature" : "Sign with finger"}</button>
           <TinyInput
             id="acceptance-accepted-by"
             value={data.acceptedByName}

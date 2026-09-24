@@ -2,6 +2,7 @@ import { PDFDocument, PDFTextField, PDFCheckBox, PDFSignature, PDFName, Standard
 import { createDocxExport } from "./docxExport.js";
 import { exportHeader, partsLaborRows, templateIdentifier, dateDisplay, findExportDoc as findDoc } from "./exportData.js";
 import JSZip from "jszip";
+import { drawDocumentInk } from './pdfInk.js';
 import {
   ensureAcceptanceCertificationData,
   ensureMotorTestData,
@@ -241,6 +242,8 @@ export async function fillPdfTemplate(blob, templateId, report, user) {
     for (const widget of field.acroField.getWidgets()) widget.setDefaultAppearance(`/${font.name} ${size} Tf 0 g`);
   }
   form.updateFieldAppearances(font);
+  if (templateId === 'service-summary') await drawDocumentInk(pdf, templateId, findDoc(report, 'Service Summary')?.data);
+  if (templateId === 'acceptance-certification') await drawDocumentInk(pdf, templateId, findDoc(report, 'Acceptance Certificate')?.data);
   return new Blob([await pdf.save()], { type: 'application/pdf' });
 }
 

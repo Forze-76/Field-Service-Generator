@@ -583,6 +583,7 @@ export const ensureAcceptanceCertificationData = (data) => {
     instructed1: ensureAcceptanceCertPersonnel(base.instructed1),
     instructed2: ensureAcceptanceCertPersonnel(base.instructed2),
     acceptedByName: typeof base.acceptedByName === "string" ? base.acceptedByName : "",
+    acceptedByInk: typeof base.acceptedByInk === "string" ? base.acceptedByInk : "",
     acceptedByTitle: typeof base.acceptedByTitle === "string" ? base.acceptedByTitle : "",
     acceptedByCompany: typeof base.acceptedByCompany === "string" ? base.acceptedByCompany : "",
     acceptanceDate: typeof base.acceptanceDate === "string" ? base.acceptanceDate : "",

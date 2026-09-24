@@ -790,7 +790,8 @@ function Workspace({
                   <ServiceSummaryForm
                     report={selected}
                     doc={activeDoc}
-                    onUpdateReport={updateReport}
+                    user={currentUser}
+                    onOpenTemplates={() => setTemplatesOpen(true)}
                     onUpdateDoc={handleUpdateActiveDoc}
                   />
                 </DocEditorShell>
@@ -808,6 +809,8 @@ function Workspace({
                   <AcceptanceCertificationForm
                     report={selected}
                     doc={activeDoc}
+                    user={currentUser}
+                    onOpenTemplates={() => setTemplatesOpen(true)}
                     onUpdateDoc={handleUpdateActiveDoc}
                   />
                 </DocEditorShell>
