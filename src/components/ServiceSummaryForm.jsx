@@ -1,3 +1,4 @@
+import FormSection from "./FormSection.jsx";
 import TimeWheelInput from "./TimeWheelInput.jsx";
 import { fillTimeLogDates, followingDay, reportStartDay } from "../utils/timeLogDates.js";
 import SignatureBox from "./SignatureBox.jsx";
@@ -12,11 +13,11 @@ function TinyLabel({ children }) {
 }
 
 function TinyInput(props) {
-  return <input {...props} className={(props.className || "") + " w-full rounded-lg border px-2 py-1 text-[13px]"} />;
+  return <input {...props} className={(props.className || "") + " min-w-0 w-full rounded-lg border px-3 py-2 text-[13px]"} />;
 }
 
 function TinyTextArea(props) {
-  return <textarea {...props} className={(props.className || "") + " w-full rounded-lg border px-2 py-1 text-[13px] min-h-[80px]"} />;
+  return <textarea {...props} className={(props.className || "") + " min-w-0 w-full rounded-lg border px-3 py-2 text-[13px] min-h-[80px]"} />;
 }
 
 // Model badge removed from UI per requirements
@@ -51,83 +52,10 @@ function ServiceSummaryForm({ report, doc, user, onUpdateDoc, onOpenTemplates })
       {preview && <DocumentPreview report={report} doc={doc} user={user} templateId="service-summary" onUpdateDoc={onUpdateDoc} onOpenTemplates={() => { setPreview(false); onOpenTemplates?.(); }} onClose={() => setPreview(false)} />}
       {signing && <SignaturePad label={signing.label} value={signing.value} onSave={ink => { onUpdateDoc({ ...doc, data: patchInk(data, signing.key, ink) }); setSigning(null); }} onClose={() => setSigning(null)} />}
 
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="font-semibold text-sm">Daily Time Log</h4>
-          <button
-            className="px-2 py-1 rounded-lg border text-[13px] disabled:opacity-40"
-            disabled={(data.timeLogs || []).length >= 7}
-            onClick={addRow}
-          >
-            + Add day
-          </button>
-        </div>
-        <div id="service-time-log" tabIndex={-1} className="rounded-xl border overflow-x-auto">
-          <div className="min-w-[760px] grid grid-cols-5 bg-gray-50 text-[12px] font-medium">
-            <div className="px-2 py-1">Date</div>
-            <div className="px-2 py-1">Time in</div>
-            <div className="px-2 py-1">Time out</div>
-            <div className="px-2 py-1">Travel time</div>
-            <div className="px-2 py-1">Signature</div>
-          </div>
-          {(data.timeLogs || []).map((row) => (
-            <div key={row.id} className="min-w-[760px] grid grid-cols-5 text-[13px] border-t">
-              <div className="px-2 py-1">
-                <TinyInput
-                  type="date"
-                  value={row.date}
-                  onChange={(e) =>
-                    setData({ timeLogs: data.timeLogs.map((r) => (r.id === row.id ? { ...r, date: e.target.value } : r)) })
-                  }
-                />
-              </div>
-              <div className="px-2 py-1">
-                <TimeWheelInput label="Time in" value={row.timeIn}
-                  onChange={value => setData({ timeLogs: data.timeLogs.map(r => r.id === row.id ? { ...r, timeIn: value } : r) })} />
-              </div>
-              <div className="px-2 py-1">
-                <TimeWheelInput label="Time out" value={row.timeOut}
-                  onChange={value => setData({ timeLogs: data.timeLogs.map(r => r.id === row.id ? { ...r, timeOut: value } : r) })} />
-              </div>
-              <div className="px-2 py-1">
-                <TimeWheelInput label="Travel time" duration value={row.travelTime}
-                  onChange={value => setData({ timeLogs: data.timeLogs.map(r => r.id === row.id ? { ...r, travelTime: value } : r) })} />
-              </div>
-              <div className="px-2 py-1 flex items-center gap-2">
-                <SignatureBox compact label="Day signature" value={row.signatureInk} onClick={() => setSigning({ key: `timeLog:${data.timeLogs.findIndex(r => r.id === row.id)}`, label: 'Day signature', value: row.signatureInk })} />
-                <button className="px-2 py-1 rounded-lg border" onClick={() => removeRow(row.id)}>
-                  Remove
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-teal-50 p-4">
+        <div><p className="font-semibold text-teal-900">Service visit summary</p><p className="text-sm text-slate-600 mt-1">Log the day, summarize the work, and review with the customer before signing.</p></div>
+        <button type="button" className="bg-white" onClick={() => setPreview(true)}>Preview Document</button>
       </div>
-
-      <div>
-        <div className="flex items-center justify-between gap-3 mb-2">
-          <TinyLabel>Service performed</TinyLabel>
-          <button type="button" className="rounded-lg border text-sm" onClick={() => setPreview(true)}>Preview Document</button>
-        </div>
-        <TinyTextArea id="service-performed" value={data.servicePerformed} onChange={e => setData({ servicePerformed: e.target.value })} />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {[['Supervisor', 'supervisorNameEmail', 'supervisorInk'], ['Manager', 'managerNameEmail', 'managerInk']].map(([label, nameKey, inkKey]) => (
-          <div key={inkKey} className="rounded-xl border p-3 space-y-2">
-            <div>
-              <TinyLabel>{label} Name / E-mail</TinyLabel>
-              <TinyInput value={data[nameKey]} onChange={e => setData({ [nameKey]: e.target.value })} />
-            </div>
-            <SignatureBox compact label={`${label} signature`} value={data[inkKey]} onClick={() => setSigning({ key: inkKey, label: `${label} signature`, value: data[inkKey] })} />
-          </div>
-        ))}
-      </div>
-      <div className="max-w-xs">
-        <TinyLabel>Acceptance date</TinyLabel>
-        <TinyInput type="date" value={data.acceptanceDate} onChange={e => setData({ acceptanceDate: e.target.value })} />
-      </div>
-
       <details key={doc.id} className="rounded-xl border p-3">
         <summary className="cursor-pointer text-sm font-medium">Edit contact details</summary>
         <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -142,10 +70,86 @@ function ServiceSummaryForm({ report, doc, user, onUpdateDoc, onOpenTemplates })
         </div>
       </details>
 
+      <FormSection number="1" title="Daily Time Log" hint="Set work and travel hours, then collect each day’s signature.">
+        <div className="flex items-center justify-end mb-2">
+          <button
+            className="px-2 py-1 rounded-lg border text-[13px] disabled:opacity-40"
+            disabled={(data.timeLogs || []).length >= 7}
+            onClick={addRow}
+          >
+            + Add day
+          </button>
+        </div>
+        <div id="service-time-log" tabIndex={-1} className="space-y-3">
+          {(data.timeLogs || []).map((row, index) => (
+            <div key={row.id} className="rounded-xl border bg-slate-50 p-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2 text-[13px]">
+              <div className="min-w-0">
+                <TinyLabel>Day {index + 1} · Date</TinyLabel>
+                <TinyInput
+                  type="date"
+                  value={row.date}
+                  onChange={(e) =>
+                    setData({ timeLogs: data.timeLogs.map((r) => (r.id === row.id ? { ...r, date: e.target.value } : r)) })
+                  }
+                />
+              </div>
+              <div className="min-w-0">
+                <TinyLabel>Time in</TinyLabel>
+                <TimeWheelInput label="Time in" value={row.timeIn}
+                  onChange={value => setData({ timeLogs: data.timeLogs.map(r => r.id === row.id ? { ...r, timeIn: value } : r) })} />
+              </div>
+              <div className="min-w-0">
+                <TinyLabel>Time out</TinyLabel>
+                <TimeWheelInput label="Time out" value={row.timeOut}
+                  onChange={value => setData({ timeLogs: data.timeLogs.map(r => r.id === row.id ? { ...r, timeOut: value } : r) })} />
+              </div>
+              <div className="min-w-0">
+                <TinyLabel>Travel time</TinyLabel>
+                <TimeWheelInput label="Travel time" duration value={row.travelTime}
+                  onChange={value => setData({ timeLogs: data.timeLogs.map(r => r.id === row.id ? { ...r, travelTime: value } : r) })} />
+              </div>
+              <div className="min-w-0">
+                <TinyLabel>Daily signature</TinyLabel>
+                <SignatureBox compact label="Day signature" value={row.signatureInk} onClick={() => setSigning({ key: `timeLog:${data.timeLogs.findIndex(r => r.id === row.id)}`, label: 'Day signature', value: row.signatureInk })} />
+                <button className="mt-1 text-xs text-slate-500" aria-label={`Remove day ${index + 1}`} onClick={() => removeRow(row.id)}>
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </FormSection>
+
+      <FormSection number="2" title="Work summary" hint="Summarize the work and record any additional notes.">
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <TinyLabel>Service performed</TinyLabel>
+        </div>
+        <TinyTextArea id="service-performed" value={data.servicePerformed} onChange={e => setData({ servicePerformed: e.target.value })} />
       <div>
         <TinyLabel>Additional notes</TinyLabel>
         <TinyTextArea value={data.additionalNotes} onChange={(e) => setData({ additionalNotes: e.target.value })} />
       </div>
+      </FormSection>
+
+      <FormSection number="3" title="Review & sign-off" hint="Confirm the supervisor and manager details, then capture their signatures.">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {[['Supervisor', 'supervisorNameEmail', 'supervisorInk'], ['Manager', 'managerNameEmail', 'managerInk']].map(([label, nameKey, inkKey]) => (
+          <div key={inkKey} className="rounded-xl bg-teal-50 p-3 space-y-3">
+            <div>
+              <TinyLabel>{label} Name / E-mail</TinyLabel>
+              <TinyInput value={data[nameKey]} onChange={e => setData({ [nameKey]: e.target.value })} />
+            </div>
+            <SignatureBox compact label={`${label} signature`} value={data[inkKey]} onClick={() => setSigning({ key: inkKey, label: `${label} signature`, value: data[inkKey] })} />
+          </div>
+        ))}
+      </div>
+      <div className="max-w-xs">
+        <TinyLabel>Acceptance date</TinyLabel>
+        <TinyInput type="date" value={data.acceptanceDate} onChange={e => setData({ acceptanceDate: e.target.value })} />
+      </div>
+
+      <button type="button" className="bg-white" onClick={() => setPreview(true)}>Review filled document</button>
+      </FormSection>
     </div>
   );
 }

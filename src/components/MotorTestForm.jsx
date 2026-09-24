@@ -1,3 +1,4 @@
+import FormSection from "./FormSection.jsx";
 import React, { useCallback, useMemo } from "react";
 import { ensureMotorTestData, makeEmptyMotorTestData, MOTOR_TEST_DOC_NAME } from "../utils/fsr";
 
@@ -7,7 +8,7 @@ function TinyLabel({ children }) {
 
 function TinyInput(props) {
   const { className = "", ...rest } = props;
-  return <input {...rest} className={`min-w-0 w-full rounded-lg border px-2 py-1 text-[13px] ${className}`} />;
+  return <input {...rest} className={`min-w-0 w-full rounded-lg border px-3 py-2 text-[13px] ${className}`} />;
 }
 
 //
@@ -118,11 +119,13 @@ function MotorTestForm({
   );
 
   return (
-    <div className="space-y-6">
-      {/* Meta fields (Job/Serial/Model/Address) removed from this editor */}
+    <div className="space-y-4">
+      <div className="rounded-xl bg-teal-50 p-4">
+        <p className="font-semibold text-teal-900">Motor test record</p>
+        <p className="text-sm text-slate-600 mt-1">Identify the motor, record the test loads, then capture readings and sign off.</p>
+      </div>
 
-      <div>
-        <TinyLabel>Motor information</TinyLabel>
+      <FormSection number="1" title="Motor information" hint="Record the motor nameplate and schematic details.">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="md:col-span-2">
             <TinyLabel>Manufacturer</TinyLabel>
@@ -227,8 +230,9 @@ function MotorTestForm({
             />
           </div>
         </div>
-      </div>
+      </FormSection>
 
+      <FormSection number="2" title="Test loads" hint="Record the rated load and the load used for testing.">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <TinyLabel>Rated Load</TinyLabel>
@@ -250,6 +254,9 @@ function MotorTestForm({
         </div>
       </div>
 
+      </FormSection>
+
+      <FormSection number="3" title="Electrical measurements" hint="Incoming and AFD output voltage, followed by current in each direction.">
       <div>
         <TinyLabel>Measured Voltage</TinyLabel>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -266,8 +273,9 @@ function MotorTestForm({
         </div>
       </div>
 
-      <div>
-        <TinyLabel>Sign-off</TinyLabel>
+      </FormSection>
+
+      <FormSection number="4" title="Sign-off" hint="Identify the person who performed the test and confirm the test date.">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <TinyLabel>Signature</TinyLabel>
@@ -315,7 +323,7 @@ function MotorTestForm({
             />
           </div>
         </div>
-      </div>
+      </FormSection>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import FormSection from "./FormSection.jsx";
 import SignatureBox from "./SignatureBox.jsx";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import DocumentPreview from "./DocumentPreview.jsx";
@@ -34,15 +35,6 @@ function TinyOptionButton({ label, active, onClick }) {
   );
 }
 
-function CertificateSection({ number, title, hint, children }) {
-  return <section className="rounded-xl border bg-white overflow-hidden">
-    <div className="flex items-center gap-3 border-b bg-slate-50 px-4 py-3">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-800 text-sm font-semibold">{number}</span>
-      <div><h3>{title}</h3><p className="text-xs text-slate-500 mt-1">{hint}</p></div>
-    </div>
-    <div className="p-4 space-y-4">{children}</div>
-  </section>;
-}
 
 function AcceptanceCertificationForm({
   doc = { data: makeEmptyAcceptanceCertificationData(), name: ACCEPTANCE_CERT_DOC_NAME },
@@ -167,7 +159,7 @@ function AcceptanceCertificationForm({
         </div>
       </details>
 
-      <CertificateSection number="1" title="Tests & verification" hint="Record the unit’s acceptance checks.">
+      <FormSection number="1" title="Tests & verification" hint="Record the unit’s acceptance checks.">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {field('startupDate', 'Startup date', { id: 'acceptance-startup-date', type: 'date' })}
           {field('loadCapacity', 'Load capacity', { id: 'acceptance-load-capacity', placeholder: 'Rated capacity' })}
@@ -209,9 +201,9 @@ function AcceptanceCertificationForm({
           </div>
         </details>
         <div className="max-w-[180px]">{field('customerInitials', 'Customer initials', { placeholder: 'Initials' })}</div>
-      </CertificateSection>
+      </FormSection>
 
-      <CertificateSection number="2" title="Personnel instructed" hint="Who received operating and maintenance instruction?">
+      <FormSection number="2" title="Personnel instructed" hint="Who received operating and maintenance instruction?">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {['instructed1', 'instructed2'].map((key, index) => <div key={key} className="rounded-lg bg-slate-50 p-3 space-y-2">
             <p className="text-xs font-semibold text-slate-500">PERSON {index + 1}</p>
@@ -221,9 +213,9 @@ function AcceptanceCertificationForm({
             </label>)}
           </div>)}
         </div>
-      </CertificateSection>
+      </FormSection>
 
-      <CertificateSection number="3" title="Customer acceptance" hint="Confirm who is accepting the unit, then preview before signing.">
+      <FormSection number="3" title="Customer acceptance" hint="Confirm who is accepting the unit, then preview before signing.">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-3">
             {field('acceptedByName', 'Accepted by — name', { id: 'acceptance-accepted-by', placeholder: 'Name' })}
@@ -252,7 +244,7 @@ function AcceptanceCertificationForm({
         <label className="block text-xs text-slate-600">Notes (optional)
           <TinyTextarea className="mt-1" value={data.acceptanceNotes} onChange={event => updateData({ acceptanceNotes: event.target.value })} rows={2} placeholder="Additional notes" />
         </label>
-      </CertificateSection>
+      </FormSection>
     </div>
   );
 }
