@@ -1,3 +1,5 @@
+import TripLifts from "./components/TripLifts";
+import { tripKey, addTripLifts, updateTripLift, toggleLiftOverride, setTripHours, updateLiftDocuments } from "./utils/multiLift";
 import { fillTimeLogDates } from "./utils/timeLogDates.js";
 import { prefillAcceptanceContact } from "./utils/acceptanceContact.js";
 import { serialFromJob } from './utils/jobNumber.js';
@@ -360,17 +362,7 @@ function Workspace({
   const updateReport = useCallback(
     (patch) => {
       if (!selectedId) return;
-      setReports((prev) =>
-        prev.map((report) => {
-          if (report.id !== selectedId) return report;
-          const entries = Object.entries(patch || {});
-          if (!entries.length) return report;
-          const hasChange = entries.some(([key, value]) => report[key] !== value);
-          if (!hasChange) return report;
-          const next = { ...report, ...patch };
-          return { ...next, sharedSite: { ...next.sharedSite, serialNumberText: serialFromJob(next.jobNo) } };
-        }),
-      );
+      setReports(prev => updateTripLift(prev, selectedId, patch));
     },
     [selectedId],
   );
@@ -378,17 +370,7 @@ function Workspace({
   const updateDocs = useCallback(
     (mutator) => {
       if (!selectedId) return;
-      setReports((prev) =>
-        prev.map((report) => {
-          if (report.id !== selectedId) return report;
-          const currentDocs = report.documents || [];
-          const nextDocs = typeof mutator === "function" ? mutator(currentDocs) : mutator;
-          if (nextDocs === currentDocs) {
-            return report;
-          }
-          return { ...report, documents: nextDocs };
-        }),
-      );
+      setReports(prev => updateLiftDocuments(prev, selectedId, mutator));
     },
     [selectedId],
   );
@@ -609,7 +591,7 @@ function Workspace({
         {!selected && (
           <aside className="report-library w-[300px] border-r bg-white p-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-extrabold">Reports</h2>
+              <h2 className="text-lg font-extrabold">Trips</h2>
               <button
                 className="p-2 rounded-xl border hover:bg-gray-50"
                 title="New report"
@@ -628,21 +610,21 @@ function Workspace({
             </div>
             <div className="space-y-2 overflow-auto" style={{maxHeight: '45vh'}}>
               {filtered.length === 0 && <div className="text-sm text-gray-500">No reports yet.</div>}
-              {filtered.map(r => (
+              {filtered.filter((r, index, list) => list.findIndex(other => tripKey(other) === tripKey(r)) === index).map(r => (
                 <div key={r.id} className={`w-full rounded-xl border px-3 py-2 ${selectedId===r.id? 'bg-blue-50 border-blue-200' : 'bg-white'}`}>
                   <div className="flex items-start gap-2">
                     <button className="flex-1 text-left" onClick={()=>setSelectedId(r.id)}>
                       <div className="flex items-center justify-between">
-                        <div className="font-semibold">{r.jobNo}</div>
+                        <div className="font-semibold">{r.sharedSite?.jobName || r.jobNo}</div>
                         <div className="text-xs text-gray-500">{new Date(r.createdAt).toLocaleDateString()}</div>
                       </div>
-                      <div className="text-xs text-gray-600">{r.tripType}{r.model?` • Model ${r.model}`:''}</div>
+                      <div className="text-xs text-gray-600">{reports.filter(unit => tripKey(unit) === tripKey(r)).map(unit => `${unit.jobNo} (${unit.tripType})`).join(" · ")}</div>
                       <div className="text-[11px] text-gray-500">{r.sharedSite?.jobName || <span className="italic text-gray-400">(no job name)</span>}</div>
                       <div className="text-[11px] text-gray-500 flex items-center gap-1"><Calendar size={12}/>{formatRange(r.startAt, r.endAt)}</div>
                     </button>
                     <button
                       className="p-2 rounded-xl border text-red-600 hover:bg-red-50"
-                      title="Delete report"
+                      title="Delete this lift report"
                       aria-label={`Delete ${r.jobNo}`}
                       onClick={(event)=>{
                         deleteTriggerRef.current = event.currentTarget;
@@ -749,6 +731,7 @@ function Workspace({
           {selected && (
             <div className="w-full mx-auto space-y-6">
               <div className="trip-banner"><div><p className="eyebrow">{selected.tripType || 'Trip draft'} · {selected.jobNo || 'Job not set'}</p><h2>{selected.sharedSite?.jobName || 'Set up your site visit'}</h2><p>{selected.model ? `Model ${selected.model}` : 'Model not set'} · {headerMissing.length ? 'Setup incomplete' : 'Shared headers ready'}</p></div><div className="flex gap-2 flex-wrap"><button onClick={()=>setSetupReportId(selected.id)}>Trip setup</button><button ref={docsTriggerRef} onClick={()=>setDocsOpen(true)}>Manage documents</button><button className="primary" ref={templatesTriggerRef} onClick={()=>setTemplatesOpen(true)}>Review & export</button></div></div>
+              <TripLifts key={tripKey(selected)} selected={selected} lifts={reports.filter(r => tripKey(r) === tripKey(selected))} types={types} onSelect={id => { setSelectedId(id); setSetupReportId(null); setCorrectionReportId(null); }} onAdd={lifts => setReports(prev => addTripLifts(prev, selected.id, lifts))} onRemove={() => setDeleteTarget({ id: selected.id, jobNo: selected.jobNo })} onHours={enabled => setReports(prev => setTripHours(prev, selected.id, enabled))} onOverride={(keys, enabled) => setReports(prev => toggleLiftOverride(prev, selected.id, keys, enabled))} />
               {showingSetup ? <TripSetupPanel report={selected} user={currentUser} types={types} onUpdate={updateReport} onStart={()=>{setSetupReportId(null);setCorrectionReportId(selected.id);}} onManage={()=>setDocsOpen(true)} onCorrectExisting={hasSavedWork ? ()=>{setSetupReportId(null);setCorrectionReportId(selected.id);} : undefined}>
                 <ReportHeaderBar showSerial={false} report={selected} onUpdateReport={updateReport} onOpenManuals={(event)=>{manualsTriggerRef.current=event.currentTarget;setManualsOpen(true);}} manualsButtonRef={manualsTriggerRef}/>
               </TripSetupPanel> : <>
@@ -895,8 +878,8 @@ function Workspace({
       {/* Delete confirmation */}
       <ConfirmDialog
         open={!!deleteTarget}
-        title="Delete report?"
-        message={deleteTarget? `This will permanently remove ${deleteTarget.jobNo}.` : ''}
+        title="Delete lift report?"
+        message={deleteTarget? `This will permanently remove lift ${deleteTarget.jobNo} and its documents. Other lifts on this trip will remain.` : ''}
         onCancel={()=>setDeleteTarget(null)}
         onConfirm={()=>{ if(deleteTarget){ removeReport(deleteTarget.id); setDeleteTarget(null);} }}
         confirmText="Delete"
@@ -954,6 +937,7 @@ function Workspace({
         onClose={() => setTemplatesOpen(false)}
         report={selected}
         technician={currentUser}
+        tripReports={selected ? reports.filter(r => tripKey(r) === tripKey(selected)) : []}
         onResolveMissing={handleResolveExportField}
         onSetDocumentDone={handleSetExportDocumentDone}
         returnFocusRef={templatesTriggerRef}

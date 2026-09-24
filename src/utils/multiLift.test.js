@@ -1,0 +1,51 @@
+import { describe, it, expect } from 'vitest';
+import { makeDocs } from './fsr';
+import { tripKey, addTripLifts, updateTripLift, toggleLiftOverride, setTripHours, updateLiftDocuments } from './multiLift';
+const seed = () => ({ id: 'original', jobNo: 'J#21460', tripType: 'Start Up', model: 'M', startAt: '2026-09-24T08:00:00Z', endAt: '2026-09-26T17:00:00Z', sharedSite: { jobName: 'Site', siteStreetAddress: 'Main St', customerContact: 'Jordan' }, documents: makeDocs('Start Up'), photos: ['original-photo'], serialTagImageUrl: 'original-tag' });
+const getSummary = r => r.documents.find(d => d.name === 'Service Summary');
+describe('multi-lift trips', () => {
+  it('adds eight inspections to an existing startup without copying work or signatures', () => {
+    const original = seed();
+    const reports = addTripLifts([original], original.id, Array.from({ length: 8 }, (_, n) => ({ jobNo: String(21461+n), model: 'F', tripType: 'Inspection' })));
+    expect(reports).toHaveLength(9);
+    expect(reports.every(r => tripKey(r) === original.id)).toBe(true);
+    expect(reports[0].documents).toBe(original.documents);
+    expect(reports[1].jobNo).toBe('J#21461');
+    expect(reports[1].sharedSite.serialNumberText).toBe('21461');
+    expect(reports[1].sharedSite.jobName).toBe('Site');
+    expect(reports[1].documents.map(d => d.name)).toEqual(['Inspection Sheet', 'Field Service Report', 'Service Summary']);
+    expect(reports[1].photos).toEqual([]);
+    expect(reports[1].serialTagImageUrl).toBe('');
+    expect(new Set(reports.flatMap(r => r.documents.map(d => d.id))).size).toBe(reports.reduce((n,r) => n+r.documents.length,0));
+    expect(() => addTripLifts(reports, original.id, [{ jobNo: '21461' }])).toThrow(/unique/);
+  });
+  it('propagates shared edits, protects overrides and restores the current defaults', () => {
+    let reports = addTripLifts([seed()], 'original', [{ jobNo: '21461', model: 'F', tripType: 'Inspection' }]);
+    const id = reports[1].id;
+    reports = toggleLiftOverride(reports,id,['sharedSite'],true);
+    reports = updateTripLift(reports,id,{ sharedSite: { jobName:'Annex' } });
+    reports = updateTripLift(reports,'original',{ sharedSite: { jobName:'Main site' }, startAt:'2026-09-25' });
+    expect(reports[1].sharedSite.jobName).toBe('Annex');
+    expect(reports[1].startAt).toBe('2026-09-25');
+    reports = toggleLiftOverride(reports,id,['sharedSite'],false);
+    expect(reports[1].sharedSite.jobName).toBe('Main site');
+    expect(reports[1].sharedSite.serialNumberText).toBe('21461');
+    reports = updateTripLift(reports,id,{ jobNo:'J#21462',model:'M' });
+    expect(reports[0].jobNo).toBe('J#21460');
+    expect(reports[1].sharedSite.serialNumberText).toBe('21462');
+    const restored = JSON.parse(JSON.stringify(reports)).filter(r => r.id !== 'original');
+    expect(tripKey(restored[0])).toBe('original');
+    expect(addTripLifts(restored,id,[{jobNo:'21463',tripType:'Inspection',model:'F'}])[1].sharedSite.jobName).toBe('Main site');
+  });
+  it('syncs only opted-in hours and never copies daily signatures', () => {
+    const original = seed(); getSummary(original).data.timeLogs = [{id:'day',date:'2026-09-24',timeIn:'08:00',timeOut:'17:00',travelTime:'01:00',signatureInk:'signed'}];
+    let reports = addTripLifts([original],'original',[{jobNo:'21461',tripType:'Inspection',model:'F'},{jobNo:'21462',tripType:'Inspection',model:'F'}]);
+    reports = setTripHours(reports,'original',true);
+    reports = setTripHours(reports,reports[1].id,true);
+    expect(getSummary(reports[1]).data.timeLogs[0].signatureInk).toBe('');
+    reports = updateLiftDocuments(reports,'original',docs => docs.map(d => d.name !== 'Service Summary' ? d : {...d,data:{...d.data,timeLogs:d.data.timeLogs.map(row=>({...row,timeOut:'18:00'}))}}));
+    expect(getSummary(reports[1]).data.timeLogs[0].timeOut).toBe('18:00');
+    expect(getSummary(reports[0]).data.timeLogs[0].signatureInk).toBe('');
+    expect(getSummary(reports[2]).data.timeLogs[0].timeOut).toBe('');
+  });
+});

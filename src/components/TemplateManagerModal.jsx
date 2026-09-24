@@ -1,3 +1,4 @@
+import { tripExportRows, buildTripArchive } from "../utils/tripExport";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, CloudDownload, Download, FileArchive, RefreshCcw, X } from "lucide-react";
 import useModalA11y from "../hooks/useModalA11y";
@@ -10,7 +11,7 @@ import {
 import { requestGoogleDriveToken, syncGoogleTemplatesForTrip } from "../utils/googleDriveTemplates";
 import { templateReadiness, missingItemsForTemplate } from "../utils/nativeTemplateReadiness";
 
-export default function TemplateManagerModal({ open, onClose, report, technician, returnFocusRef, onResolveMissing, onSetDocumentDone }) {
+export default function TemplateManagerModal({ open, onClose, report, technician, tripReports = [], returnFocusRef, onResolveMissing, onSetDocumentDone }) {
   const containerRef = useRef(null);
   const [stored, setStored] = useState([]);
   const [busyId, setBusyId] = useState("");
@@ -30,6 +31,7 @@ export default function TemplateManagerModal({ open, onClose, report, technician
     if (!record && report) readiness.missingItems = missingItemsForTemplate(definition.id, report, technician);
     return { definition, record, readiness };
   }), [definitions, installed, report, technician]);
+  const tripRows = useMemo(() => tripExportRows(tripReports, stored, technician), [tripReports, stored, technician]);
   const refresh = async () => setStored(await listStoredTemplates());
 
   useEffect(() => {
@@ -94,6 +96,16 @@ export default function TemplateManagerModal({ open, onClose, report, technician
     }
   };
 
+  const handleTripExport = async () => {
+    setBusyId('trip'); setMessage('');
+    try {
+      const blob = await buildTripArchive(tripRows, technician);
+      await shareOrDownloadDocument(blob, `Trip-${String(report.startAt || '').slice(0, 10)}.zip`);
+      setMessage('Trip ZIP created. See Export-summary.txt for drafts and missing templates.');
+    } catch (error) { if (error?.name !== 'AbortError') setMessage(error.message || 'Unable to export trip.'); }
+    finally { setBusyId(''); }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="template-manager-title">
       <div ref={containerRef} tabIndex={-1} className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
@@ -111,6 +123,13 @@ export default function TemplateManagerModal({ open, onClose, report, technician
             {busyId === "sync" ? "Synchronizing…" : `Sync ${report?.tripType || "Templates"}`}
           </button>
         </div>
+
+        {tripReports.length > 1 && <div className="mt-4 border rounded-xl p-3 space-y-2">
+          <h4 className="font-semibold">Entire trip · {tripReports.length} lifts</h4>
+          <p className="text-xs text-slate-600">Includes drafts and separate INTERNAL folders. Missing templates are listed in the export summary.</p>
+          {tripReports.map(unit => <p className="text-xs" key={unit.id}>{unit.jobNo} · {unit.tripType} · {tripRows.filter(row => row.report.id === unit.id && row.readiness.status === 'completed').length} completed · {tripRows.filter(row => row.report.id === unit.id && !row.record).length} missing templates</p>)}
+          <button disabled={!!busyId || !tripRows.some(row => row.record)} onClick={handleTripExport}>{busyId === 'trip' ? 'Creating trip ZIP…' : 'Export trip ZIP (includes drafts)'}</button>
+        </div>}
 
         {message && <div className="mt-4 rounded-xl border bg-gray-50 px-4 py-3 text-sm text-gray-700">{message}</div>}
 
