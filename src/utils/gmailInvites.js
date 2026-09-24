@@ -8,7 +8,22 @@ async function gmailGet(path, token, signal) {
   const response = await fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${token}` }, signal, credentials: "omit" });
   if (!response.ok) {
     if (response.status === 401) throw new Error("Gmail access expired. Connect to Gmail again.");
-    if (response.status === 403) throw new Error("Gmail access is unavailable. Check read-only permission and that the Gmail API is enabled for this app.");
+    let error;
+    try { error = (await response.json())?.error; } catch { /* Some failures have no JSON body. */ }
+    const reasons = [...(Array.isArray(error?.errors) ? error.errors : []), ...(Array.isArray(error?.details) ? error.details : [])].map((item) => item?.reason);
+    if (reasons.some((reason) => ["SERVICE_DISABLED", "accessNotConfigured"].includes(reason))) {
+      throw new Error("Gmail API is disabled for this app’s Google Cloud project. Enable Gmail API in the same project as the app’s OAuth client, then try Choose from Gmail again.");
+    }
+    if (reasons.some((reason) => ["ACCESS_TOKEN_SCOPE_INSUFFICIENT", "insufficientPermissions"].includes(reason))) {
+      throw new Error("Gmail read-only permission was not granted. Choose from Gmail again and allow read-only Gmail access.");
+    }
+    if (reasons.includes("domainPolicy")) {
+      throw new Error("Your Google Workspace administrator has blocked this app’s Gmail access. Ask your administrator to allow it, or import the calendar ICS file instead.");
+    }
+    if (response.status === 429 || reasons.some((reason) => ["rateLimitExceeded", "userRateLimitExceeded", "dailyLimitExceeded", "quotaExceeded", "RATE_LIMIT_EXCEEDED", "QUOTA_EXCEEDED"].includes(reason))) {
+      throw new Error("Gmail’s request limit has been reached. Try again later, or import the calendar ICS file instead.");
+    }
+    if (response.status === 403) throw new Error("Google denied Gmail access (403). Check Gmail API settings and read-only permission in the app’s Google Cloud project, or import the calendar ICS file instead.");
     throw new Error(`Unable to read Gmail (${response.status}). Try again.`);
   }
   return response.json();

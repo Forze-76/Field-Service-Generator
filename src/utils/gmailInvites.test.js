@@ -30,6 +30,23 @@ describe("Gmail read-only invitation transport", () => {
     expect(draft.jobNo).toBe("J#21460");
     expect(draft.endAt).toBe("2026-09-21T23:59");
   });
+  it.each([
+    [403, { details: [{ reason: "SERVICE_DISABLED" }] }, /Gmail API is disabled/],
+    [403, { errors: [{ reason: "accessNotConfigured" }] }, /Gmail API is disabled/],
+    [403, { details: [{ reason: "ACCESS_TOKEN_SCOPE_INSUFFICIENT" }] }, /permission was not granted/],
+    [403, { errors: [{ reason: "insufficientPermissions" }] }, /permission was not granted/],
+    [403, { errors: [{ reason: "domainPolicy" }] }, /administrator has blocked/],
+    [403, { errors: [{ reason: "dailyLimitExceeded" }] }, /request limit/],
+    [429, {}, /request limit/],
+    [403, { details: "unexpected", errors: null }, /Google denied Gmail access/],
+  ])("explains Gmail failure %s with reason %j", async (status, error, message) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status, json: async () => ({ error }) }));
+    await expect(listGmailInvites("secret")).rejects.toThrow(message);
+  });
+  it("handles a non-JSON error response", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 403, json: async () => { throw new SyntaxError(); } }));
+    await expect(listGmailInvites("secret")).rejects.toThrow(/Google denied Gmail access/);
+  });
   it.each([401,403,500])("reports actionable HTTP %s failures", async (status) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ok:false,status}));
     await expect(listGmailInvites("secret")).rejects.toThrow(status===401 ? /expired/ : status===403 ? /permission/ : /500/);
