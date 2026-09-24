@@ -1,3 +1,4 @@
+import { Trash2 } from "lucide-react";
 import FormSection from "./FormSection.jsx";
 import TimeWheelInput from "./TimeWheelInput.jsx";
 import { fillTimeLogDates, followingDay, reportStartDay } from "../utils/timeLogDates.js";
@@ -80,9 +81,9 @@ function ServiceSummaryForm({ report, doc, user, onUpdateDoc, onOpenTemplates })
             + Add day
           </button>
         </div>
-        <div id="service-time-log" tabIndex={-1} className="space-y-3">
+        <div id="service-time-log" tabIndex={-1} className="space-y-2">
           {(data.timeLogs || []).map((row, index) => (
-            <div key={row.id} className="rounded-xl border bg-slate-50 p-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2 text-[13px]">
+            <div key={row.id} className="rounded-xl border bg-slate-50 p-2 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2 text-[13px]">
               <div className="min-w-0">
                 <TinyLabel>Day {index + 1} · Date</TinyLabel>
                 <TinyInput
@@ -110,10 +111,14 @@ function ServiceSummaryForm({ report, doc, user, onUpdateDoc, onOpenTemplates })
               </div>
               <div className="min-w-0">
                 <TinyLabel>Daily signature</TinyLabel>
+                <div className="flex items-start gap-1">
+                  <div className="min-w-0 flex-1">
                 <SignatureBox compact label="Day signature" value={row.signatureInk} onClick={() => setSigning({ key: `timeLog:${data.timeLogs.findIndex(r => r.id === row.id)}`, label: 'Day signature', value: row.signatureInk })} />
-                <button className="mt-1 text-xs text-slate-500" aria-label={`Remove day ${index + 1}`} onClick={() => removeRow(row.id)}>
-                  Remove
+                  </div>
+                <button type="button" title={`Remove day ${index + 1}`} className="shrink-0 text-slate-500" aria-label={`Remove day ${index + 1}`} onClick={() => removeRow(row.id)}>
+                  <Trash2 size={16} aria-hidden="true" />
                 </button>
+                </div>
               </div>
             </div>
           ))}
