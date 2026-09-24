@@ -1,5 +1,6 @@
+import { fillTimeLogDates, followingDay, reportStartDay } from "../utils/timeLogDates.js";
 import SignatureBox from "./SignatureBox.jsx";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import DocumentPreview from "./DocumentPreview.jsx";
 import SignaturePad from "./SignaturePad.jsx";
 import { patchInk } from "../utils/pdfInk.js";
@@ -27,12 +28,21 @@ function ServiceSummaryForm({ report, doc, user, onUpdateDoc, onOpenTemplates })
     (patch) => onUpdateDoc({ ...doc, data: { ...data, ...patch } }),
     [doc, data, onUpdateDoc],
   );
+  const initializedDates = useRef('');
+  useEffect(() => {
+    const key = `${doc.id}:${report.startAt}`;
+    if (initializedDates.current === key || !reportStartDay(report.startAt)) return;
+    initializedDates.current = key;
+    const rows = data.timeLogs || [];
+    const datedRows = fillTimeLogDates(rows, report.startAt);
+    if (datedRows.some((row, index) => row !== rows[index])) setData({ timeLogs: datedRows });
+  }, [doc.id, report.startAt, data.timeLogs, setData]);
   const addRow = useCallback(() => {
     if ((data.timeLogs || []).length >= 7) return;
     setData({
-      timeLogs: [...(data.timeLogs || []), { id: uid(), date: "", timeIn: "", timeOut: "", travelTime: "", signature: "" }],
+      timeLogs: [...(data.timeLogs || []), { id: uid(), date: followingDay(data.timeLogs?.at(-1)?.date) || reportStartDay(report.startAt), timeIn: "", timeOut: "", travelTime: "", signature: "" }],
     });
-  }, [data.timeLogs, setData]);
+  }, [data.timeLogs, report.startAt, setData]);
   const removeRow = useCallback((id) => setData({ timeLogs: (data.timeLogs || []).filter((r) => r.id !== id) }), [data.timeLogs, setData]);
 
   return (

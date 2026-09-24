@@ -1,3 +1,4 @@
+import { fillTimeLogDates } from "./utils/timeLogDates.js";
 import { serialFromJob } from './utils/jobNumber.js';
 import WorkSummary from './components/WorkSummary';
 import TripSetupPanel from './components/TripSetupPanel';
@@ -286,6 +287,7 @@ function Workspace({
             ...doc,
             data: {
               ...doc.data,
+              timeLogs: fillTimeLogDates(doc.data.timeLogs, startAt),
               pmContact: [projectContact.name, projectContact.email].filter(Boolean).join(" | "),
               customerContact: [installContact.name, installContact.phone].filter(Boolean).join(" | "),
             },
