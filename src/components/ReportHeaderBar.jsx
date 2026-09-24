@@ -66,7 +66,7 @@ function ReportHeaderBar({ report, onUpdateReport, onOpenManuals, manualsButtonR
         {/* Info items + Manuals */}
         <div className="flex-1 flex items-start justify-between gap-6">
           <div className="grid grid-cols-2 gap-4">
-            <label className="text-sm text-gray-500">Job #
+            <label className="text-sm text-gray-500">Job / serial number
               <input id="report-job-number" className="mt-1 w-full rounded-lg border px-2 py-1 font-semibold text-gray-900" value={report.jobNo || ""} onChange={(event) => onUpdateReport?.({ jobNo: event.target.value })} />
             </label>
             <label className="text-sm text-gray-500">Model

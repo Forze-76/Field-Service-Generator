@@ -1,3 +1,4 @@
+import { serialFromJob } from './jobNumber.js';
 import { ensureFsrDocData, docRequestLabel } from './fsr.js';
 
 export const text = (value) => String(value ?? '').trim();
@@ -8,9 +9,7 @@ export const dateDisplay = (value) => {
 };
 export const exportHeader = (report, user) => {
   const site = report?.sharedSite || {};
-  const rawSerial = text(site.serialNumberText || report?.serialNumber);
-  // Never turn an unrecognized identifier into a different, apparently valid serial.
-  const serial = rawSerial && /^\d+(?:[\s,;/&-]+\d+)*$/.test(rawSerial) ? rawSerial : '';
+  const serial = serialFromJob(report?.jobNo);
   return { ...site, serial, jobNo: text(report?.jobNo), model: text(report?.model), date: dateDisplay(report?.startAt), technician: text(report?.technicianName || user?.name) };
 };
 export const exportFsrData = (report, internal = false) => {

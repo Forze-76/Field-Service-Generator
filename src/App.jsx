@@ -1,3 +1,4 @@
+import { serialFromJob } from './utils/jobNumber.js';
 import WorkSummary from './components/WorkSummary';
 import TripSetupPanel from './components/TripSetupPanel';
 import { setupMissing, documentStatus, orderNewDocuments } from './utils/fieldWorkflow';
@@ -319,7 +320,6 @@ function Workspace({
         photos: [],
         sharedSite: {
           jobName: "",
-          serialNumberText: "",
           siteStreetAddress: "",
           siteMailingAddress: "",
           siteCity: "",
@@ -327,6 +327,7 @@ function Workspace({
           siteZip: "",
           customerContact: "",
           ...(draft.sharedSite || {}),
+          serialNumberText: serialFromJob(jobNo),
         },
         inviteMeta,
       };
@@ -365,7 +366,8 @@ function Workspace({
           if (!entries.length) return report;
           const hasChange = entries.some(([key, value]) => report[key] !== value);
           if (!hasChange) return report;
-          return { ...report, ...patch };
+          const next = { ...report, ...patch };
+          return { ...next, sharedSite: { ...next.sharedSite, serialNumberText: serialFromJob(next.jobNo) } };
         }),
       );
     },
@@ -1110,7 +1112,7 @@ function ReportSetup({ open, onClose, types, onCreate, returnFocusRef, reports =
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <label className="block text-sm font-semibold" htmlFor={jobFieldId}>
-              Job # (format: J#01 … J#99999)
+              Job / serial number (format: J#01 … J#99999)
             </label>
             <input
               id={jobFieldId}
@@ -1215,7 +1217,7 @@ function ReportSetup({ open, onClose, types, onCreate, returnFocusRef, reports =
         {<div className="mt-4 space-y-3">
           <p className="text-xs text-gray-600">Review the imported details. Timed events use this device’s time zone; all-day End shows the last included day. Choose the model if it was not supplied.</p>
           <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-3"><legend className="font-semibold">Site details</legend>
-            {[["jobName", "Site name"], ["siteStreetAddress", "Street address"], ["siteMailingAddress", "Mailing address"], ["siteCity", "City"], ["siteState", "State"], ["siteZip", "ZIP code"], ["serialNumberText", "Serial number"], ["customerContact", "Site contact"]].map(([key, label]) => <label key={key} className="text-sm">{label}<input className="block w-full rounded-lg border p-2" value={draft.sharedSite?.[key] || ""} onChange={(event) => setDraft((prev) => ({ ...prev, sharedSite: { ...prev.sharedSite, [key]: event.target.value } }))} /></label>)}
+            {[["jobName", "Site name"], ["siteStreetAddress", "Street address"], ["siteMailingAddress", "Mailing address"], ["siteCity", "City"], ["siteState", "State"], ["siteZip", "ZIP code"], ["customerContact", "Site contact"]].map(([key, label]) => <label key={key} className="text-sm">{label}<input className="block w-full rounded-lg border p-2" value={draft.sharedSite?.[key] || ""} onChange={(event) => setDraft((prev) => ({ ...prev, sharedSite: { ...prev.sharedSite, [key]: event.target.value } }))} /></label>)}
           </fieldset>
           {[["projectContact", "Project contact"], ["installContact", "Install contact"]].map(([contact, label]) => <fieldset key={contact} className="grid grid-cols-1 md:grid-cols-2 gap-3"><legend className="font-semibold">{label}</legend>
             {[["name", "Name"], ["company", "Company"], ["phone", "Phone"], ["alternatePhone", "Alternate phone"], ["email", "Email"]].map(([key, title]) => <label key={key} className="text-sm">{label} {title.toLowerCase()}<input className="block w-full rounded-lg border p-2" value={draft.inviteMeta?.[contact]?.[key] || ""} onChange={(event) => setDraft((prev) => ({ ...prev, inviteMeta: { ...prev.inviteMeta, [contact]: { ...prev.inviteMeta?.[contact], [key]: event.target.value } } }))} /></label>)}

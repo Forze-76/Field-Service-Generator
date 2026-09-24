@@ -51,12 +51,12 @@ describe("native template readiness", () => {
   });
 
   it("returns navigation targets and uses only numeric lift serials accepted by export", () => {
-    const invalidSerial = { ...report, sharedSite: { ...report.sharedSite, serialNumberText: "M-21136" } };
+    const invalidSerial = { ...report, jobNo: "J#", sharedSite: { ...report.sharedSite, serialNumberText: "M-21136" } };
     const readiness = templateReadiness({ id: "field-service-report" }, { id: "fsr" }, invalidSerial, { name: "F. Madera" });
-    expect(readiness.missing).toContain("Serial number");
-    expect(readiness.missingItems.find((entry) => entry.label === "Serial number").target).toEqual({
-      documentName: "Service Summary",
-      selector: "#shared-serial-number",
+    expect(readiness.missing).toContain("Job number");
+    expect(readiness.missingItems.find((entry) => entry.label === "Job number").target).toEqual({
+      documentName: null,
+      selector: "#report-job-number",
     });
   });
 });

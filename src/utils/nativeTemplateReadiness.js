@@ -8,8 +8,7 @@ const item = (label, value, documentName, selector) => ({ label, value, target: 
 const commonFields = (report, user) => {
   const header = exportHeader(report, user);
   return [
-    item("Job number", header.jobNo, null, "#report-job-number"),
-    item("Serial number", header.serial, "Service Summary", "#shared-serial-number"),
+    item("Job number", header.serial, null, "#report-job-number"),
     item("Model", header.model, null, "#report-model"),
     item("Report date", header.date, null, "#report-start-date"),
     item("Technician", header.technician, null, "#report-technician"),

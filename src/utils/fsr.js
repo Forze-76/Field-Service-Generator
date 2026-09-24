@@ -1,3 +1,4 @@
+import { serialFromJob } from './jobNumber.js';
 import { uid } from "./id";
 
 export { uid };
@@ -1208,7 +1209,7 @@ export function buildReportHtml(report, user) {
 
   const acceptanceHeaderSegments = [
     `Job: ${esc(acceptanceData.jobName || sharedSite.jobName || report.jobNo || "-")}`,
-    `Serial: ${esc(acceptanceData.pflowSerialNumber || sharedSite.serialNumberText || "-")}`,
+    `Serial: ${esc(serialFromJob(report.jobNo) || "-")}`,
     `Model: ${esc(acceptanceData.modelNumber || report.model || "-")}`,
     `Address: ${esc(acceptanceAddressParts.join(", ") || "-")}`,
   ];
@@ -1388,7 +1389,7 @@ export function buildReportHtml(report, user) {
 
   const motorHeaderSegments = [
     `Job: ${esc(motorData.jobName || sharedSite.jobName || report.jobNo || "-")}`,
-    `PFlow Serial Number: ${esc(motorData.pflowSerialNumber || sharedSite.serialNumberText || "-")}`,
+    `PFlow Serial Number: ${esc(serialFromJob(report.jobNo) || "-")}`,
     `Model: ${esc(motorData.modelNumber || report.model || "-")}`,
     `Address: ${esc(motorAddressParts.join(", ") || "-")}`,
   ];

@@ -57,7 +57,7 @@ describe('complete native exports',()=>{
   expect(out.getPageCount()).toBeGreaterThan(2);expect(out.getForm().getTextField('Service performed').getText()).toBe('See continuation');
  });
  it('does not invent a technician or transform a malformed serial into a number',async()=>{
-  const r=report();r.serialNumber='J#12345';expect(missingFieldsForTemplate('field-service-report',r,{})).toEqual(expect.arrayContaining(['Technician','Serial number']));
+  const r=report();r.jobNo='J#';r.serialNumber='J#12345';expect(missingFieldsForTemplate('field-service-report',r,{})).toEqual(expect.arrayContaining(['Technician','Job number']));
   const output=await fillDocxTemplate(await template(),r,{});const z=await JSZip.loadAsync(await bytes(output));const t=bodyText(await z.file('word/document.xml').async('text'));expect(t).not.toContain('F. Madera');expect(t).not.toContain('Serial Number: J#');
  });
  it('uses a report technician override and clearly labels draft filenames',async()=>{
