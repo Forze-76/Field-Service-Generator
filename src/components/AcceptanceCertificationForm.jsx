@@ -88,7 +88,9 @@ function AcceptanceCertificationForm({
       {signing && <SignaturePad label="Customer signature" value={data.acceptedByInk} onSave={ink => { updateData({ acceptedByInk: ink }); setSigning(false); }} onClose={() => setSigning(false)} />}
       {/* Meta fields (Job/Serial/Model/Address) removed from this editor */}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <details key={doc.id} className="rounded-lg border p-3">
+        <summary className="cursor-pointer text-sm font-medium">Edit contact details</summary>
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <TinyLabel>Customer Contact Name</TinyLabel>
           <TinyInput
@@ -143,6 +145,10 @@ function AcceptanceCertificationForm({
             placeholder="name@example.com"
           />
         </div>
+        </div>
+      </details>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <TinyLabel>Startup Date</TinyLabel>
           <TinyInput

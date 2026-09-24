@@ -568,6 +568,8 @@ function Workspace({
       const field = document.querySelector(selector);
       if (!field) return;
       pendingExportFocusRef.current = "";
+      const details = field.closest("details");
+      if (details) details.open = true;
       field.scrollIntoView?.({ behavior: "smooth", block: "center" });
       field.focus?.({ preventScroll: true });
     }, 100);
