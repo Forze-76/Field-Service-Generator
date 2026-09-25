@@ -90,3 +90,28 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
  .report-open .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top:16px; }
  .stage-heading h2 { font-size:23px; }
 }
+
+/* Size daily rows to the form, including an iPad with the trip sidebar open. */
+.service-time-log { container-type:inline-size; }
+.time-log-row { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.time-log-signature { grid-column:span 2; }
+.service-time-log input, .service-time-log button {
+ box-sizing:border-box; min-width:0; max-width:100%;
+}
+.service-time-log input[type=date] {
+ display:block; width:100%; -webkit-appearance:none; appearance:none;
+ min-height:44px; height:44px; padding:8px; text-align:left;
+}
+/* Safari's native date content must shrink with its grid cell. */
+.service-time-log input[type=date]::-webkit-date-and-time-value {
+ min-width:0; text-align:left;
+}
+.service-time-log input[type=date]::-webkit-datetime-edit { padding:0; }
+.service-time-log button { padding:8px; }
+@container (min-width:480px) {
+ .time-log-row { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
+@container (min-width:740px) {
+ .time-log-row { grid-template-columns:repeat(5,minmax(0,1fr)); }
+ .time-log-signature { grid-column:auto; }
+}

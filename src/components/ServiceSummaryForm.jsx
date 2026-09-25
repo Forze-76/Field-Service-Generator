@@ -79,13 +79,14 @@ function ServiceSummaryForm({ report, doc, user, onUpdateDoc, onOpenTemplates })
             + Add day
           </button>
         </div>
-        <div id="service-time-log" tabIndex={-1} className="space-y-2">
+        <div id="service-time-log" tabIndex={-1} className="service-time-log space-y-2">
           {(data.timeLogs || []).map((row, index) => (
-            <div key={row.id} className="rounded-xl border bg-slate-50 p-2 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2 text-[13px]">
+            <div key={row.id} className="time-log-row rounded-xl border bg-slate-50 p-2 grid gap-2 text-[13px]">
               <div className="min-w-0">
                 <TinyLabel>Day {index + 1} · Date</TinyLabel>
                 <TinyInput
                   type="date"
+                  aria-label={`Day ${index + 1} date`}
                   value={row.date}
                   onChange={(e) =>
                     setData({ timeLogs: data.timeLogs.map((r) => (r.id === row.id ? { ...r, date: e.target.value } : r)) })
@@ -107,7 +108,7 @@ function ServiceSummaryForm({ report, doc, user, onUpdateDoc, onOpenTemplates })
                 <TimeWheelInput label="Travel time" duration value={row.travelTime}
                   onChange={value => setData({ timeLogs: data.timeLogs.map(r => r.id === row.id ? { ...r, travelTime: value } : r) })} />
               </div>
-              <div className="min-w-0">
+              <div className="time-log-signature min-w-0">
                 <TinyLabel>Daily signature</TinyLabel>
                 <div className="flex items-start gap-1">
                   <div className="min-w-0 flex-1">
